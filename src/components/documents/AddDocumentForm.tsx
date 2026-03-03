@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
+import { STANDARD_DOCUMENT_TAGS } from '@/config/group';
 import { ArrowRight } from 'lucide-react';
 
 interface AddDocumentFormProps {
@@ -107,6 +108,28 @@ export function AddDocumentForm({ onClose }: AddDocumentFormProps) {
           value={form.tags}
           onChange={(e) => setForm({ ...form, tags: e.target.value })}
         />
+        <div className="flex flex-wrap gap-2 mt-2">
+          {STANDARD_DOCUMENT_TAGS.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => {
+                const currentTags = form.tags
+                  .split(',')
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+                if (currentTags.includes(tag)) return;
+                setForm({
+                  ...form,
+                  tags: [...currentTags, tag].join(', '),
+                });
+              }}
+              className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
       </Field>
 
       <div className="flex gap-2 pt-2">

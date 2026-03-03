@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
+import { MEMBER_OPTIONS } from '@/config/group';
 import { ArrowRight } from 'lucide-react';
 import type { TaskStatus } from '@/types';
 
@@ -106,12 +107,18 @@ export function AddTaskForm({ onClose }: AddTaskFormProps) {
       </Field>
 
       <Field label="Tildelt til">
-        <input
+        <select
           className={inputClass}
-          placeholder="f.eks. Alice"
           value={form.assignedTo}
           onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
-        />
+        >
+          <option value="">Ikke tildelt</option>
+          {MEMBER_OPTIONS.map((member) => (
+            <option key={member} value={member}>
+              {member}
+            </option>
+          ))}
+        </select>
       </Field>
 
       <div className="flex gap-2 pt-2">

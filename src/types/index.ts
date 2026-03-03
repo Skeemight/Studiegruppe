@@ -29,3 +29,28 @@ export interface Exam {
   date: string;
   notes: string;
 }
+
+export interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  agenda: string[];
+  decisions: string[];
+}
+
+export type NoteFormat = 'pdf' | 'docx' | 'pptx' | 'xlsx' | 'txt' | 'link' | 'andet';
+
+export interface StudyNote {
+  id: string;
+  title: string;
+  courseId: string;
+  week: string;
+  format: NoteFormat;
+  url: string;
+  sourceType: 'link' | 'upload';
+  fileName?: string;
+  mimeType?: string;
+  tags: string[];
+  examRelevant: boolean;
+}
