@@ -4,8 +4,9 @@ import { useApp } from '@/store/AppContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Trash2, User } from 'lucide-react';
+import { Trash2, User, ExternalLink } from 'lucide-react';
 import type { Task, TaskStatus } from '@/types';
+import { getCourseColor } from '@/lib/courseColors';
 
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   todo: 'in_progress',
@@ -26,6 +27,7 @@ interface TaskCardProps {
 export function TaskCard({ task }: TaskCardProps) {
   const { updateTask, deleteTask, getCourseById } = useApp();
   const course = getCourseById(task.courseId);
+  const colors = getCourseColor(course?.color, task.courseId);
   const deadline = new Date(task.deadline);
   const isOverdue = deadline < new Date() && task.status !== 'done';
 
@@ -33,12 +35,26 @@ export function TaskCard({ task }: TaskCardProps) {
     <Card className="p-4 flex items-center gap-4">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-gray-900">{task.title}</p>
+          {task.url ? (
+            <a
+              href={task.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline"
+            >
+              {task.title}
+            </a>
+          ) : (
+            <p className="text-sm font-semibold text-gray-900">{task.title}</p>
+          )}
           <Badge variant={task.status} />
         </div>
         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
           {course && (
-            <span className="text-xs text-gray-400 font-medium">{course.name}</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
+              {course.name}
+            </span>
           )}
           <span
             className={`text-xs font-medium tabular-nums ${
@@ -62,6 +78,17 @@ export function TaskCard({ task }: TaskCardProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {task.url && (
+          <a
+            href={task.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Åbn i Canvas"
+            className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
         <Button
           variant="secondary"
           size="sm"

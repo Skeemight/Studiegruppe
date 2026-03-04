@@ -26,6 +26,7 @@ export function AddExamForm({ onClose }: AddExamFormProps) {
   const { courses, addExam } = useApp();
   const [form, setForm] = useState({
     courseId: courses[0]?.id ?? '',
+    title: '',
     date: '',
     notes: '',
   });
@@ -48,7 +49,13 @@ export function AddExamForm({ onClose }: AddExamFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.courseId || !form.date) return;
-    addExam({ ...form, notes: form.notes.trim() });
+    const courseName = courses.find((c) => c.id === form.courseId)?.name;
+    addExam({
+      ...form,
+      title: form.title.trim() || undefined,
+      notes: form.notes.trim(),
+      ...(courseName ? { courseName } : {}),
+    });
     onClose();
   };
 
@@ -68,6 +75,16 @@ export function AddExamForm({ onClose }: AddExamFormProps) {
             </option>
           ))}
         </select>
+      </Field>
+
+      <Field label="Eksamenstype">
+        <input
+          type="text"
+          className={inputClass}
+          placeholder="f.eks. Mundtlig eksamen med skriftligt forlæg"
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+        />
       </Field>
 
       <Field label="Dato *">

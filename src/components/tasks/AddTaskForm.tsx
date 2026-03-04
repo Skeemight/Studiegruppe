@@ -100,7 +100,7 @@ export function AddTaskForm({ onClose }: AddTaskFormProps) {
           value={form.status}
           onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}
         >
-          <option value="todo">At gøre</option>
+          <option value="todo">Aktiv</option>
           <option value="in_progress">I gang</option>
           <option value="done">Færdig</option>
         </select>

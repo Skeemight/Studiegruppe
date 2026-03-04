@@ -38,9 +38,15 @@ export function UpcomingTasks() {
             const isOverdue = deadline < new Date();
 
             return (
-              <li key={task.id} className="flex items-center gap-3 px-5 py-3">
+              <li key={task.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{task.title}</p>
+                  {task.url ? (
+                    <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-800 truncate hover:text-blue-600 hover:underline block">
+                      {task.title}
+                    </a>
+                  ) : (
+                    <p className="text-sm font-medium text-gray-800 truncate">{task.title}</p>
+                  )}
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{course?.name}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

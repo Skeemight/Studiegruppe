@@ -10,6 +10,8 @@ import {
   GraduationCap,
   CalendarClock,
   NotebookText,
+  CalendarDays,
+  ListTodo,
 } from 'lucide-react';
 import { GROUP_PROFILE } from '@/config/group';
 
@@ -17,6 +19,8 @@ const NAV_ITEMS = [
   { label: 'Oversigt', href: '/', icon: LayoutDashboard },
   { label: 'Fag', href: '/fag', icon: GraduationCap },
   { label: 'Opgaver', href: '/tasks', icon: CheckSquare },
+  { label: 'Tidslinje', href: '/calendar', icon: CalendarDays },
+  { label: 'Ugefokus', href: '/focus', icon: ListTodo },
   { label: 'Møder', href: '/meetings', icon: CalendarClock },
   { label: 'Noter', href: '/notes', icon: NotebookText },
   { label: 'Dokumenter', href: '/documents', icon: FileText },

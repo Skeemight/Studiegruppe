@@ -8,7 +8,7 @@ const STYLES: Record<BadgeVariant, string> = {
 };
 
 const LABELS: Partial<Record<BadgeVariant, string>> = {
-  todo: 'At gøre',
+  todo: 'Aktiv',
   in_progress: 'I gang',
   done: 'Færdig',
 };

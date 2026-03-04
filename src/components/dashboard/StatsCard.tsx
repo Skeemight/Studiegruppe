@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 
 const COLOR_MAP = {
@@ -13,18 +14,21 @@ interface StatsCardProps {
   value: number | string;
   icon: ReactNode;
   color: keyof typeof COLOR_MAP;
+  href: string;
 }
 
-export function StatsCard({ label, value, icon, color }: StatsCardProps) {
+export function StatsCard({ label, value, icon, color, href }: StatsCardProps) {
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-3">
-        <div className={`p-2.5 rounded-xl ${COLOR_MAP[color]}`}>{icon}</div>
-        <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
+    <Link href={href}>
+      <Card className="p-5 hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl ${COLOR_MAP[color]}`}>{icon}</div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }

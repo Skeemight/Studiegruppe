@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/store/AppContext';
 import { GROUP_PROFILE } from '@/config/group';
@@ -7,6 +8,9 @@ import { StatsCard } from '@/components/dashboard/StatsCard';
 import { UpcomingTasks } from '@/components/dashboard/UpcomingTasks';
 import { NextExam } from '@/components/dashboard/NextExam';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { MeetingForm } from '@/components/meetings/MeetingForm';
 import {
   CheckSquare,
   Clock,
@@ -16,19 +20,32 @@ import {
   ArrowRight,
   CalendarClock,
   ShieldAlert,
+  Plus,
 } from 'lucide-react';
 
 const QUICK_LINKS = [
   { href: '/fag', label: 'Fag' },
   { href: '/tasks', label: 'Opgaver' },
+  { href: '/focus', label: 'Ugefokus' },
+  { href: '/calendar', label: 'Tidslinje' },
   { href: '/meetings', label: 'Møder' },
   { href: '/notes', label: 'Noter' },
   { href: '/documents', label: 'Dokumenter' },
   { href: '/exams', label: 'Eksamener' },
 ];
 
+function getNextMonday(): Date {
+  const d = new Date();
+  d.setHours(10, 0, 0, 0);
+  const day = d.getDay();
+  const daysUntil = day === 0 ? 1 : day === 1 ? 7 : 8 - day;
+  d.setDate(d.getDate() + daysUntil);
+  return d;
+}
+
 export default function DashboardPage() {
-  const { tasks, exams, documents, courses, meetings } = useApp();
+  const { tasks, exams, documents, courses, meetings, addMeeting } = useApp();
+  const [showMeetingForm, setShowMeetingForm] = useState(false);
   const members = GROUP_PROFILE.members;
 
   const now = new Date();
@@ -74,6 +91,18 @@ export default function DashboardPage() {
     .filter((meeting) => new Date(meeting.date) >= now)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
 
+  const lastLocation = [...meetings]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.location ?? '';
+
+  const meetingDefaults = {
+    id: '',
+    title: 'Ugentligt gruppemøde',
+    date: getNextMonday().toISOString(),
+    location: lastLocation,
+    agenda: [],
+    decisions: [],
+  };
+
   const meetingAgenda = [
     ...(nextMeeting?.agenda ?? []),
     ...(overdueTasks > 0 ? [`Gennemgå ${overdueTasks} overskredne opgaver`] : []),
@@ -118,24 +147,28 @@ export default function DashboardPage() {
           value={`${doneTasks} / ${totalTasks}`}
           icon={<CheckSquare className="w-5 h-5" />}
           color="green"
+          href="/tasks"
         />
         <StatsCard
           label="Åbne opgaver"
           value={openTasks}
           icon={<Clock className="w-5 h-5" />}
           color="blue"
+          href="/tasks"
         />
         <StatsCard
           label="Kommende eksamener"
           value={upcomingExams}
           icon={<BookOpen className="w-5 h-5" />}
           color="purple"
+          href="/exams"
         />
         <StatsCard
           label="Dokumenter"
           value={documents.length}
           icon={<FileText className="w-5 h-5" />}
           color="orange"
+          href="/documents"
         />
       </div>
 
@@ -189,7 +222,13 @@ export default function DashboardPage() {
                 {nextSevenDaysTasks.map((task) => (
                   <li key={task.id} className="text-sm flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-gray-800 font-medium truncate">{task.title}</p>
+                      {task.url ? (
+                        <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-gray-800 font-medium truncate block hover:text-blue-600 hover:underline">
+                          {task.title}
+                        </a>
+                      ) : (
+                        <p className="text-gray-800 font-medium truncate">{task.title}</p>
+                      )}
                       <p className="text-xs text-gray-500 mt-0.5">{task.assignedTo || 'Ikke tildelt'}</p>
                     </div>
                     <span className="text-xs text-gray-500 shrink-0">
@@ -226,9 +265,18 @@ export default function DashboardPage() {
                     })
                   : 'Ikke planlagt'}
               </span>
-              <Link href="/meetings" className="text-xs font-medium text-blue-600 hover:text-blue-700">
-                Redigér
-              </Link>
+              {nextMeeting ? (
+                <Link href="/meetings" className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                  Redigér
+                </Link>
+              ) : (
+                <button
+                  onClick={() => setShowMeetingForm(true)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Planlæg
+                </button>
+              )}
             </div>
           </div>
           <div className="p-5 space-y-4">
@@ -262,7 +310,13 @@ export default function DashboardPage() {
                 )}
               </>
             ) : (
-              <p className="text-sm text-gray-500">Ingen møder planlagt endnu.</p>
+              <div className="text-center py-4 space-y-3">
+                <p className="text-sm text-gray-500">Ingen møder planlagt endnu.</p>
+                <Button size="sm" onClick={() => setShowMeetingForm(true)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Planlæg møde
+                </Button>
+              </div>
             )}
           </div>
         </Card>
@@ -273,31 +327,32 @@ export default function DashboardPage() {
             <ShieldAlert className="w-4 h-4 text-gray-400" />
           </div>
           <ul className="divide-y divide-gray-50 text-sm">
-            <li className="px-5 py-3 flex items-center justify-between">
-              <span className="text-gray-700">Ikke-tildelte opgaver</span>
-              <span className="font-semibold text-gray-900">{unassignedCount}</span>
-            </li>
-            <li className="px-5 py-3 flex items-center justify-between">
-              <span className="text-gray-700">Overskredne deadlines</span>
-              <span className={`font-semibold ${overdueTasks > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {overdueTasks}
-              </span>
-            </li>
-            <li className="px-5 py-3 flex items-center justify-between">
-              <span className="text-gray-700">Fag uden dokumenter</span>
-              <span className="font-semibold text-gray-900">{coursesWithoutDocuments}</span>
-            </li>
-            <li className="px-5 py-3 flex items-center justify-between">
-              <span className="text-gray-700">Fag uden mappe-link</span>
-              <span className="font-semibold text-gray-900">{coursesWithoutFolderLink}</span>
-            </li>
-            <li className="px-5 py-3 flex items-center justify-between">
-              <span className="text-gray-700">Dokumenter uden tags</span>
-              <span className="font-semibold text-gray-900">{docsWithoutTags}</span>
-            </li>
+            {[
+              { label: 'Ikke-tildelte opgaver', value: unassignedCount, href: '/tasks', highlight: false },
+              { label: 'Overskredne deadlines', value: overdueTasks, href: '/tasks', highlight: overdueTasks > 0 },
+              { label: 'Fag uden dokumenter', value: coursesWithoutDocuments, href: '/documents', highlight: false },
+              { label: 'Fag uden mappe-link', value: coursesWithoutFolderLink, href: '/documents', highlight: false },
+              { label: 'Dokumenter uden tags', value: docsWithoutTags, href: '/documents', highlight: false },
+            ].map(({ label, value, href, highlight }) => (
+              <li key={label}>
+                <Link href={href} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-700">{label}</span>
+                  <span className={`font-semibold ${highlight ? 'text-red-600' : 'text-gray-900'}`}>{value}</span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </Card>
       </div>
+
+      <Modal open={showMeetingForm} onClose={() => setShowMeetingForm(false)} title="Planlæg møde">
+        <MeetingForm
+          initialMeeting={meetingDefaults}
+          submitLabel="Opret møde"
+          onSubmit={(meeting) => { addMeeting(meeting); setShowMeetingForm(false); }}
+          onCancel={() => setShowMeetingForm(false)}
+        />
+      </Modal>
     </div>
   );
 }

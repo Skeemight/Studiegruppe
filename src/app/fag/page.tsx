@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { FagCard } from '@/components/fag/FagCard';
 import { AddFagForm } from '@/components/fag/AddFagForm';
+import { MergeCoursesModal } from '@/components/fag/MergeCoursesModal';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { Plus } from 'lucide-react';
+import { Plus, Merge } from 'lucide-react';
 
 export default function FagPage() {
   const { courses } = useApp();
   const [showForm, setShowForm] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -21,10 +23,18 @@ export default function FagPage() {
             {courses.length} {courses.length === 1 ? 'fag oprettet' : 'fag oprettet'}
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="w-4 h-4 mr-1" />
-          Tilføj fag
-        </Button>
+        <div className="flex gap-2">
+          {courses.length >= 2 && (
+            <Button variant="secondary" onClick={() => setShowMerge(true)}>
+              <Merge className="w-4 h-4 mr-1" />
+              Sammenflet
+            </Button>
+          )}
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1" />
+            Tilføj fag
+          </Button>
+        </div>
       </div>
 
       {courses.length === 0 ? (
@@ -44,6 +54,10 @@ export default function FagPage() {
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Tilføj fag">
         <AddFagForm onClose={() => setShowForm(false)} />
+      </Modal>
+
+      <Modal open={showMerge} onClose={() => setShowMerge(false)} title="Sammenflet fag">
+        <MergeCoursesModal onClose={() => setShowMerge(false)} />
       </Modal>
     </div>
   );
