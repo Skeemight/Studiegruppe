@@ -78,6 +78,30 @@ export interface CanvasModule {
   items: CanvasModuleItem[];
 }
 
+export interface GroupConfig {
+  name: string;
+  program: string;
+  school: string;
+  members: string[];
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  password: string; // prototype: plaintext
+  groupId: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  program: string;
+  school: string;
+  inviteCode: string;
+  memberIds: string[];
+}
+
 export type NoteFormat = 'pdf' | 'docx' | 'pptx' | 'xlsx' | 'txt' | 'link' | 'andet';
 
 export interface StudyNote {

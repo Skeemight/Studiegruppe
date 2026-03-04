@@ -2,61 +2,23 @@
 
 import React, { createContext, useCallback, useContext, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { Course, Task, Document, Exam, Meeting, StudyNote, WeekFocus, ScheduleEvent, CanvasModule } from '@/types';
+import type { Course, Task, Document, Exam, Meeting, StudyNote, WeekFocus, ScheduleEvent, CanvasModule, GroupConfig, User, Group } from '@/types';
 import { COURSE_COLORS } from '@/lib/courseColors';
 
-const SEED_MARKER_KEY = 'sg_seed_hait_v1';
+const LEGACY_SEED_KEY = 'sg_seed_hait_v1';
+const MIGRATION_AUTH_KEY = 'sg_migration_auth_v1';
 
-const DEFAULT_COURSES: Course[] = [];
-const DEFAULT_TASKS: Task[] = [];
-const DEFAULT_DOCUMENTS: Document[] = [];
-const DEFAULT_EXAMS: Exam[] = [];
-const DEFAULT_MEETINGS: Meeting[] = [];
-const DEFAULT_NOTES: StudyNote[] = [];
+const LEGACY_GROUP_CONFIG: GroupConfig = {
+  name: 'HA(it) Studiegruppe',
+  program: 'HA(it)',
+  school: 'CBS',
+  members: ['Kasper', 'Hjalte', 'Hubert', 'Magnus'],
+};
 
-const SEEDED_COURSES: Course[] = [
-  { id: 'course-regnskab', name: 'Regnskab (virksomheds økonomi)', code: 'BINT01057E', semester: 'Forår 2026', color: 'blue' },
-  { id: 'course-it-projektledelse', name: 'IT-Projektledelse', code: 'BINT01059E', semester: 'Forår 2026', color: 'violet' },
-  { id: 'course-organisationsteori', name: 'Organisationsteori', code: 'BINT01060E', semester: 'Forår 2026', color: 'emerald' },
-  { id: 'course-programmering', name: 'Programmering', code: 'BINT01642D', semester: 'Forår 2026', color: 'amber' },
-];
-
-const SEEDED_EXAMS: Exam[] = [
-  {
-    id: 'exam-programmering-2026-05-11',
-    courseId: 'course-programmering',
-    courseName: 'Programmering',
-    title: 'Mundtlig eksamen med skriftligt forlæg',
-    date: '2026-05-11',
-    notes: '',
-  },
-  {
-    id: 'exam-it-projektledelse-2026-05-15',
-    courseId: 'course-it-projektledelse',
-    courseName: 'IT-Projektledelse',
-    title: 'Mundtlig eksamen med skriftligt forlæg',
-    date: '2026-05-15',
-    notes: '',
-  },
-  {
-    id: 'exam-organisationsteori-2026-05-22',
-    courseId: 'course-organisationsteori',
-    courseName: 'Organisationsteori',
-    title: 'Mundtlig eksamen med skriftligt forlæg',
-    date: '2026-05-22',
-    notes: '',
-  },
-  {
-    id: 'exam-regnskab-2026-05-26',
-    courseId: 'course-regnskab',
-    courseName: 'Regnskab (virksomheds økonomi)',
-    title: 'Skriftlig stedprøve',
-    date: '2026-05-26',
-    notes: '',
-  },
-];
-
-const SEEDED_MEETINGS: Meeting[] = [];
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
 function repairMojibake(value: string): string {
   if (!/[ÃÂ]/.test(value)) return value;
@@ -71,6 +33,18 @@ function repairMojibake(value: string): string {
 const generateId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 
 interface AppContextType {
+  // Auth
+  currentUser: User | null;
+  currentGroup: Group | null;
+  groupConfig: GroupConfig | null; // derived from currentGroup + users
+  login: (email: string, password: string) => { success: boolean; error?: string };
+  logout: () => void;
+  signup: (name: string, email: string, password: string) => { success: boolean; error?: string; userId?: string };
+  createGroup: (userId: string, name: string, program: string, school: string) => string; // returns inviteCode
+  joinGroup: (userId: string, inviteCode: string) => { success: boolean; error?: string };
+  findGroupByCode: (code: string) => Group | null;
+  findLegacyUser: () => User | null;
+  loginLegacy: (userId: string) => void;
   courses: Course[];
   tasks: Task[];
   documents: Document[];
@@ -126,38 +100,54 @@ function readStoredArrayLength(key: string): number {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [courses, setCourses] = useLocalStorage<Course[]>('sg_courses', DEFAULT_COURSES);
-  const [tasks, setTasks] = useLocalStorage<Task[]>('sg_tasks', DEFAULT_TASKS);
-  const [documents, setDocuments] = useLocalStorage<Document[]>('sg_documents', DEFAULT_DOCUMENTS);
-  const [exams, setExams] = useLocalStorage<Exam[]>('sg_exams', DEFAULT_EXAMS);
-  const [meetings, setMeetings] = useLocalStorage<Meeting[]>('sg_meetings', DEFAULT_MEETINGS);
-  const [notes, setNotes] = useLocalStorage<StudyNote[]>('sg_notes', DEFAULT_NOTES);
+  // Auth state
+  const [users, setUsers] = useLocalStorage<User[]>('sg_users', []);
+  const [groups, setGroups] = useLocalStorage<Group[]>('sg_groups', []);
+  const [currentUserId, setCurrentUserId] = useLocalStorage<string | null>('sg_current_user_id', null);
+
+  // Derived auth values
+  const currentUser = users.find((u) => u.id === currentUserId) ?? null;
+  const currentGroup = currentUser ? (groups.find((g) => g.id === currentUser.groupId) ?? null) : null;
+  const groupConfig: GroupConfig | null = currentGroup
+    ? {
+        name: currentGroup.name,
+        program: currentGroup.program,
+        school: currentGroup.school,
+        members: users.filter((u) => currentGroup.memberIds.includes(u.id)).map((u) => u.name),
+      }
+    : null;
+
+  // App data state
+  const [courses, setCourses] = useLocalStorage<Course[]>('sg_courses', []);
+  const [tasks, setTasks] = useLocalStorage<Task[]>('sg_tasks', []);
+  const [documents, setDocuments] = useLocalStorage<Document[]>('sg_documents', []);
+  const [exams, setExams] = useLocalStorage<Exam[]>('sg_exams', []);
+  const [meetings, setMeetings] = useLocalStorage<Meeting[]>('sg_meetings', []);
+  const [notes, setNotes] = useLocalStorage<StudyNote[]>('sg_notes', []);
   const [weekFocus, setWeekFocus] = useLocalStorage<WeekFocus[]>('sg_weekfocus', []);
   const [scheduleEvents, setScheduleEvents] = useLocalStorage<ScheduleEvent[]>('sg_schedule', []);
   const [canvasModules, setCanvasModules] = useLocalStorage<CanvasModule[]>('sg_canvas_modules', []);
 
+  // Migration: auto-create user+group for legacy HA(it) users so they skip auth
   useEffect(() => {
-    const hasSeeded = window.localStorage.getItem(SEED_MARKER_KEY);
-    if (hasSeeded) return;
+    if (currentUserId) return;
+    if (window.localStorage.getItem(MIGRATION_AUTH_KEY)) return;
+    if (!window.localStorage.getItem(LEGACY_SEED_KEY)) return;
+    window.localStorage.setItem(MIGRATION_AUTH_KEY, '1');
 
-    const hasPersistedData =
-      readStoredArrayLength('sg_courses') > 0 ||
-      readStoredArrayLength('sg_tasks') > 0 ||
-      readStoredArrayLength('sg_documents') > 0 ||
-      readStoredArrayLength('sg_exams') > 0 ||
-      readStoredArrayLength('sg_meetings') > 0 ||
-      readStoredArrayLength('sg_notes') > 0;
+    let config: GroupConfig = LEGACY_GROUP_CONFIG;
+    try {
+      const stored = window.localStorage.getItem('sg_group_config');
+      if (stored) { const p = JSON.parse(stored); if (p) config = p; }
+    } catch {}
 
-    if (hasPersistedData) {
-      window.localStorage.setItem(SEED_MARKER_KEY, 'skipped-existing-data');
-      return;
-    }
-
-    setCourses(SEEDED_COURSES);
-    setExams(SEEDED_EXAMS);
-    setMeetings(SEEDED_MEETINGS);
-    window.localStorage.setItem(SEED_MARKER_KEY, 'seeded');
-  }, [setCourses, setExams, setMeetings]);
+    const groupId = generateId();
+    const userId = generateId();
+    const inviteCode = generateInviteCode();
+    setGroups([{ id: groupId, name: config.name, program: config.program, school: config.school, inviteCode, memberIds: [userId] }]);
+    setUsers([{ id: userId, name: config.members[0] ?? 'Bruger', email: '', password: '', groupId }]);
+    setCurrentUserId(userId);
+  }, [currentUserId, setGroups, setUsers, setCurrentUserId]);
 
   useEffect(() => {
     const repairedCourses = courses.map((course) => ({
@@ -219,6 +209,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setMeetings(repairedMeetings);
     }
   }, [meetings, setMeetings]);
+
+  // ── Auth actions ────────────────────────────────────────────────────────────
+
+  const login = useCallback((email: string, password: string): { success: boolean; error?: string } => {
+    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+    if (!user) return { success: false, error: 'Forkert email eller adgangskode' };
+    setCurrentUserId(user.id);
+    return { success: true };
+  }, [users, setCurrentUserId]);
+
+  const logout = useCallback(() => setCurrentUserId(null), [setCurrentUserId]);
+
+  const signup = useCallback((name: string, email: string, password: string): { success: boolean; error?: string; userId?: string } => {
+    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+      return { success: false, error: 'Email er allerede registreret' };
+    }
+    const userId = generateId();
+    setUsers((prev) => [...prev, { id: userId, name, email, password, groupId: '' }]);
+    return { success: true, userId };
+  }, [users, setUsers]);
+
+  const createGroup = useCallback((userId: string, name: string, program: string, school: string): string => {
+    const groupId = generateId();
+    const inviteCode = generateInviteCode();
+    setGroups((prev) => [...prev, { id: groupId, name, program, school, inviteCode, memberIds: [userId] }]);
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, groupId } : u));
+    setCurrentUserId(userId);
+    return inviteCode;
+  }, [setGroups, setUsers, setCurrentUserId]);
+
+  const joinGroup = useCallback((userId: string, inviteCode: string): { success: boolean; error?: string } => {
+    const group = groups.find((g) => g.inviteCode.toUpperCase() === inviteCode.trim().toUpperCase());
+    if (!group) return { success: false, error: 'Ugyldig invite-kode' };
+    setGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, memberIds: [...new Set([...g.memberIds, userId])] } : g));
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, groupId: group.id } : u));
+    setCurrentUserId(userId);
+    return { success: true };
+  }, [groups, setGroups, setUsers, setCurrentUserId]);
+
+  const findGroupByCode = useCallback((code: string): Group | null =>
+    groups.find((g) => g.inviteCode.toUpperCase() === code.trim().toUpperCase()) ?? null,
+    [groups]
+  );
+
+  // Legacy users were migrated with email='' and can't log in via the normal form.
+  const findLegacyUser = useCallback((): User | null =>
+    users.find((u) => u.email === '') ?? null,
+    [users]
+  );
+
+  const loginLegacy = useCallback((userId: string): void => {
+    setCurrentUserId(userId);
+  }, [setCurrentUserId]);
+
+  // ── Course/data actions ──────────────────────────────────────────────────────
 
   const getCourseById = useCallback((id: string) => courses.find((c) => c.id === id), [courses]);
 
@@ -463,18 +508,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotes((data.notes as StudyNote[]) ?? []);
         setWeekFocus((data.weekFocus as WeekFocus[]) ?? []);
         if (Array.isArray(data.scheduleEvents)) setScheduleEvents(data.scheduleEvents as ScheduleEvent[]);
-        window.localStorage.setItem(SEED_MARKER_KEY, 'imported');
         return { success: true };
       } catch {
         return { success: false, error: 'Kunne ikke læse filen' };
       }
     },
-    [setCourses, setTasks, setDocuments, setExams, setMeetings, setNotes]
+    [setCourses, setTasks, setDocuments, setExams, setMeetings, setNotes, setWeekFocus, setScheduleEvents]
   );
 
   return (
     <AppContext.Provider
       value={{
+        currentUser,
+        currentGroup,
+        groupConfig,
+        login,
+        logout,
+        signup,
+        createGroup,
+        joinGroup,
+        findGroupByCode,
+        findLegacyUser,
+        loginLegacy,
         courses,
         tasks,
         documents,

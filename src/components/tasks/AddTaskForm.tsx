@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
-import { MEMBER_OPTIONS } from '@/config/group';
 import { ArrowRight } from 'lucide-react';
 import type { TaskStatus } from '@/types';
 
@@ -25,7 +24,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function AddTaskForm({ onClose }: AddTaskFormProps) {
-  const { courses, addTask } = useApp();
+  const { courses, addTask, groupConfig } = useApp();
+  const memberOptions = groupConfig?.members ?? [];
   const [form, setForm] = useState({
     title: '',
     courseId: courses[0]?.id ?? '',
@@ -113,7 +113,7 @@ export function AddTaskForm({ onClose }: AddTaskFormProps) {
           onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
         >
           <option value="">Ikke tildelt</option>
-          {MEMBER_OPTIONS.map((member) => (
+          {memberOptions.map((member) => (
             <option key={member} value={member}>
               {member}
             </option>

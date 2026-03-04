@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Download, Upload, RefreshCw, Search, CalendarDays } from 'lucide-react';
-import { GROUP_PROFILE } from '@/config/group';
 import { useApp } from '@/store/AppContext';
 import { Modal } from '@/components/ui/Modal';
 import { CanvasSyncModal } from '@/components/layout/CanvasSyncModal';
@@ -12,7 +11,7 @@ import { IcsImportModal } from '@/components/layout/IcsImportModal';
 import { useAutoCanvasSync, formatRelativeTime } from '@/hooks/useAutoCanvasSync';
 
 export function TopBar() {
-  const { exportData, importData } = useApp();
+  const { exportData, importData, groupConfig } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -83,7 +82,7 @@ export function TopBar() {
             <span className="text-xs text-red-600 font-medium">{errorMsg}</span>
           )}
           <p className="text-xs text-gray-500 hidden sm:block mr-2">
-            {GROUP_PROFILE.program} · {GROUP_PROFILE.members.length} medlemmer
+            {groupConfig?.program} · {groupConfig?.members.length} medlemmer
           </p>
           {/* Search */}
           <button

@@ -7,7 +7,6 @@ import { MemberColumn } from '@/components/tasks/MemberColumn';
 import { AddTaskForm } from '@/components/tasks/AddTaskForm';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { GROUP_PROFILE } from '@/config/group';
 import { Plus, List, Users } from 'lucide-react';
 import type { TaskStatus } from '@/types';
 
@@ -19,13 +18,13 @@ const STATUS_FILTERS: { label: string; value: TaskStatus | 'all' }[] = [
 ];
 
 export default function TasksPage() {
-  const { tasks } = useApp();
+  const { tasks, groupConfig } = useApp();
   const [view, setView] = useState<'list' | 'person'>('person');
   const [filter, setFilter] = useState<TaskStatus | 'all'>('all');
   const [hideDone, setHideDone] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
-  const members = [...GROUP_PROFILE.members];
+  const members = groupConfig?.members ?? [];
 
   const tasksByMember = Object.fromEntries(
     members.map((member) => [

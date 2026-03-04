@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/store/AppContext';
-import { GROUP_PROFILE } from '@/config/group';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { UpcomingTasks } from '@/components/dashboard/UpcomingTasks';
 import { NextExam } from '@/components/dashboard/NextExam';
@@ -21,6 +20,7 @@ import {
   CalendarClock,
   ShieldAlert,
   Plus,
+  Zap,
 } from 'lucide-react';
 
 const QUICK_LINKS = [
@@ -44,9 +44,9 @@ function getNextMonday(): Date {
 }
 
 export default function DashboardPage() {
-  const { tasks, exams, documents, courses, meetings, addMeeting } = useApp();
+  const { tasks, exams, documents, courses, meetings, addMeeting, groupConfig } = useApp();
   const [showMeetingForm, setShowMeetingForm] = useState(false);
-  const members = GROUP_PROFILE.members;
+  const members = groupConfig?.members ?? [];
 
   const now = new Date();
   const totalTasks = tasks.length;
@@ -113,9 +113,9 @@ export default function DashboardPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="space-y-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{GROUP_PROFILE.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{groupConfig?.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Centralt overblik for {GROUP_PROFILE.program} med {members.length} medlemmer.
+            Centralt overblik for {groupConfig?.program} · {groupConfig?.school} · {members.length} medlemmer.
           </p>
         </div>
         <Card className="p-4 sm:p-5">
@@ -344,6 +344,32 @@ export default function DashboardPage() {
           </ul>
         </Card>
       </div>
+
+      {/* Why not just Canvas? */}
+      <Card>
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-50">
+          <Zap className="w-4 h-4 text-yellow-400" />
+          <h2 className="font-semibold text-gray-900 text-sm">Hvorfor ikke bare Canvas?</h2>
+        </div>
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          {[
+            ['Canvas viser dig. Vi viser gruppen.', 'Opgaver er tildelt til én person — du kan se hvem der har hvad, og om nogen er overbelastet.'],
+            ['Arbejdsfordeling på tværs af fag.', 'Canvas har ingen samlet oversigt over hvem i gruppen der laver hvad og hvornår.'],
+            ['Fælles deadlines ét sted.', 'I stedet for at tjekke 4 kurser i Canvas, ser I alle deadlines på én side — med advarsel om hvad der ryger.'],
+            ['Mødereferater & beslutninger.', 'Canvas har ingen mødefunktion. Her gemmes agenda, referater og beslutninger struktureret.'],
+            ['Ugefokus til gruppemøderne.', 'Sæt ugens prioriteter for gruppen — hvem laver hvad inden næste møde.'],
+            ['Ingen login for alle.', 'Gruppen deler én URL. Ingen skal have Canvas-adgang eller være tilmeldt kurset.'],
+          ].map(([title, desc]) => (
+            <div key={title} className="flex items-start gap-2.5 py-1.5">
+              <span className="text-green-400 mt-0.5 shrink-0">✓</span>
+              <div>
+                <p className="font-medium text-gray-800 leading-snug">{title}</p>
+                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Modal open={showMeetingForm} onClose={() => setShowMeetingForm(false)} title="Planlæg møde">
         <MeetingForm
