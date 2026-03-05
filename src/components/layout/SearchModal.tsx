@@ -11,6 +11,7 @@ interface SearchResult {
   title: string;
   subtitle?: string;
   href: string;
+  externalUrl?: string;
   type: 'fag' | 'opgave' | 'dokument' | 'eksamen' | 'møde' | 'note';
   courseColor?: string;
 }
@@ -69,14 +70,14 @@ export function SearchModal({ open, onClose }: Props) {
     tasks.forEach((t) => {
       if (t.title.toLowerCase().includes(q)) {
         const course = getCourseById(t.courseId);
-        matches.push({ id: t.id, title: t.title, subtitle: course?.name, href: '/tasks', type: 'opgave', courseColor: course?.color });
+        matches.push({ id: t.id, title: t.title, subtitle: course?.name, href: '/tasks', externalUrl: t.url || undefined, type: 'opgave', courseColor: course?.color });
       }
     });
 
     documents.forEach((d) => {
       if (d.title.toLowerCase().includes(q) || d.tags.some((tag) => tag.toLowerCase().includes(q))) {
         const course = getCourseById(d.courseId);
-        matches.push({ id: d.id, title: d.title, subtitle: course?.name, href: '/documents', type: 'dokument', courseColor: course?.color });
+        matches.push({ id: d.id, title: d.title, subtitle: course?.name, href: '/documents', externalUrl: d.url || undefined, type: 'dokument', courseColor: course?.color });
       }
     });
 
@@ -106,8 +107,13 @@ export function SearchModal({ open, onClose }: Props) {
 
   useEffect(() => { setSelected(0); }, [results]);
 
-  function navigate(href: string) {
-    router.push(href);
+  function navigate(result: SearchResult) {
+    if (result.externalUrl) {
+      window.open(result.externalUrl, '_blank', 'noopener,noreferrer');
+      onClose();
+      return;
+    }
+    router.push(result.href);
     onClose();
   }
 
@@ -119,7 +125,7 @@ export function SearchModal({ open, onClose }: Props) {
       e.preventDefault();
       setSelected((s) => Math.max(s - 1, 0));
     } else if (e.key === 'Enter' && results[selected]) {
-      navigate(results[selected].href);
+      navigate(results[selected]);
     } else if (e.key === 'Escape') {
       onClose();
     }
@@ -177,7 +183,7 @@ export function SearchModal({ open, onClose }: Props) {
                     <li key={`${r.type}-${r.id}`}>
                       <button
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${i === selected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                        onClick={() => navigate(r.href)}
+                        onClick={() => navigate(r)}
                         onMouseEnter={() => setSelected(i)}
                       >
                         <div className={`p-1.5 rounded-lg shrink-0 ${r.courseColor ? colors.light : 'bg-gray-100'}`}>

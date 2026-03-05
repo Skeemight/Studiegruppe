@@ -6,7 +6,7 @@ import { useApp } from '@/store/AppContext';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { getCourseColor } from '@/lib/courseColors';
 import { MapPin, ChevronRight, BookOpen, Clock, ExternalLink, AlertCircle, FileText } from 'lucide-react';
-import type { Course, Document } from '@/types';
+import type { Course, Document, CanvasModule } from '@/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -60,6 +60,38 @@ function fileExt(doc: Document): string {
   return (doc.tags[0] ?? doc.url.split('.').pop()?.split('?')[0] ?? '').toLowerCase();
 }
 
+// ── ModuleItemList ─────────────────────────────────────────────────────────────
+
+function ModuleItemList({ module }: { module: CanvasModule }) {
+  const items = module.items.filter((i) => i.type !== 'SubHeader' && i.url);
+  if (items.length === 0) return null;
+
+  return (
+    <details className="mt-3" onClick={(e) => e.stopPropagation()}>
+      <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700 flex items-center gap-1.5 select-none list-none">
+        <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+        {module.name} · {items.length} {items.length === 1 ? 'element' : 'elementer'}
+      </summary>
+      <ul className="mt-2 pl-5 space-y-1.5">
+        {items.map((item) => (
+          <li key={item.id}>
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              <FileText className="w-3 h-3 shrink-0" />
+              <span>{item.title}</span>
+              <span className="text-[10px] text-gray-400 uppercase font-mono">{item.type}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 // ── CourseFileList ─────────────────────────────────────────────────────────────
 
 function CourseFileList({ docs }: { docs: Document[] }) {
@@ -99,9 +131,10 @@ function CourseFileList({ docs }: { docs: Document[] }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TodayPage() {
-  const { scheduleEvents, documents, courses, tasks, exams } = useApp();
+  const { scheduleEvents, documents, courses, tasks, exams, canvasModules } = useApp();
   const [prepared, setPrepared] = useLocalStorage<Record<string, boolean>>('sg_today_prepared', {});
   const [courseMapping] = useLocalStorage<Record<string, string>>('sg_course_mapping', {});
+  const [lessonModuleMap] = useLocalStorage<Record<string, string>>('sg_lesson_module_map', {});
 
   const today = new Date();
   const todayStr = localDateStr(today);
@@ -226,6 +259,14 @@ export default function TodayPage() {
               const courseDocs = course ? getDocsForCourse(course.id) : [];
               const done = isPrepared(event.id);
 
+              const mappedModuleId = lessonModuleMap[event.id];
+              const mappedModule = mappedModuleId
+                ? canvasModules.find((m) => m.id === mappedModuleId) ?? null
+                : null;
+              const courseHasModules = course
+                ? canvasModules.some((m) => m.courseId === course.id)
+                : false;
+
               return (
                 <li
                   key={event.id}
@@ -267,7 +308,18 @@ export default function TodayPage() {
                     </label>
                   </div>
 
-                  <CourseFileList docs={courseDocs} />
+                  {mappedModule ? (
+                    <ModuleItemList module={mappedModule} />
+                  ) : courseHasModules ? (
+                    <p className="mt-2 text-xs text-gray-400">
+                      Ingen modul-kobling ·{' '}
+                      <Link href="/settings" className="text-blue-500 hover:underline">
+                        Kobl i indstillinger
+                      </Link>
+                    </p>
+                  ) : (
+                    <CourseFileList docs={courseDocs} />
+                  )}
                 </li>
               );
             })}
