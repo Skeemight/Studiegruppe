@@ -1,23 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useApp } from '@/store/AppContext';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { GroupSetupScreen } from '@/components/auth/GroupSetupScreen';
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useApp();
-  const [mounted, setMounted] = useState(false);
+  const { currentUser, currentGroup, loading } = useApp();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // During SSR and the initial client render, show nothing so the server and
-  // client produce identical HTML (avoids hydration mismatch).
-  // React 18 batches this effect together with the localStorage hydration
-  // effects inside useLocalStorage, so users see one immediate transition:
-  // blank → correct state (no intermediate auth screen flash).
-  if (!mounted) return null;
+  // Show a minimal loading state while Supabase resolves the session
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-cream">
+      <div className="text-center space-y-3">
+        <div className="w-8 h-8 border-2 border-warm/40 border-t-terra rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-warm font-mono">Indlæser…</p>
+      </div>
+    </div>
+  );
   if (!currentUser) return <AuthScreen />;
+  if (!currentGroup) return <GroupSetupScreen userId={currentUser.id} />;
   return <>{children}</>;
 }

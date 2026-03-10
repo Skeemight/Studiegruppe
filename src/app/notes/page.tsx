@@ -78,11 +78,11 @@ export default function NotesPage() {
   }, [filteredNotes, getCourseById]);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-[780px] mx-auto">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Noter</h1>
-          <p className="text-sm text-gray-500 mt-1">{notes.length} noter samlet</p>
+          <h1 className="font-serif text-[32px] leading-tight" style={{ color: 'var(--text-primary)' }}>Noter</h1>
+          <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{notes.length} noter samlet</p>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="w-4 h-4 mr-1" />

@@ -1,12 +1,11 @@
 import { type ReactNode } from 'react';
 import Link from 'next/link';
-import { Card } from '@/components/ui/Card';
 
 const COLOR_MAP = {
-  green: 'bg-green-50 text-green-600',
-  blue: 'bg-blue-50 text-blue-600',
-  purple: 'bg-purple-50 text-purple-600',
-  orange: 'bg-orange-50 text-orange-600',
+  green: 'var(--accent-secondary)',
+  blue: 'var(--accent-primary)',
+  purple: '#7C5CBF',
+  orange: '#C4803E',
 };
 
 interface StatsCardProps {
@@ -20,15 +19,23 @@ interface StatsCardProps {
 export function StatsCard({ label, value, icon, color, href }: StatsCardProps) {
   return (
     <Link href={href}>
-      <Card className="p-5 hover:shadow-md hover:border-gray-200 transition-all cursor-pointer">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${COLOR_MAP[color]}`}>{icon}</div>
+      <div
+        className="bg-white px-4 py-3.5 hover-lift cursor-pointer"
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+        }}
+      >
+        <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
+            <p className="section-label">{label}</p>
+            <p className="font-mono text-xl font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
+              {value}
+            </p>
           </div>
+          <div style={{ color: COLOR_MAP[color] }}>{icon}</div>
         </div>
-      </Card>
+      </div>
     </Link>
   );
 }

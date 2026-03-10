@@ -5,28 +5,31 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md';
 }
 
-const VARIANTS = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm',
-  secondary: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 shadow-sm',
-  ghost: 'text-gray-500 hover:bg-gray-100',
-  danger: 'bg-red-50 text-red-600 hover:bg-red-100',
-};
-
-const SIZES = {
-  sm: 'px-2.5 py-1.5 text-xs',
-  md: 'px-4 py-2 text-sm',
-};
-
 export function Button({
   variant = 'primary',
   size = 'md',
   className = '',
+  style,
   children,
   ...props
 }: ButtonProps) {
+  const sizeClass = size === 'sm' ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm';
+
+  const variantStyle: React.CSSProperties = {
+    primary:   { backgroundColor: 'var(--accent-primary)', color: '#fff' },
+    secondary: { backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)' },
+    ghost:     { backgroundColor: 'transparent', color: 'var(--text-secondary)' },
+    danger:    { backgroundColor: '#FEE', color: 'var(--accent-error)' },
+  }[variant];
+
   return (
     <button
-      className={`inline-flex items-center font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      className={`inline-flex items-center font-medium transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 ${sizeClass} ${className}`}
+      style={{
+        borderRadius: 'var(--radius-sm)',
+        ...variantStyle,
+        ...style,
+      }}
       {...props}
     >
       {children}

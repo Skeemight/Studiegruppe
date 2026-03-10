@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '@/store/AppContext';
-import { getCourseColor } from '@/lib/courseColors';
+import { getCourseColor, getCourseHex } from '@/lib/courseColors';
+import { resolveCourseForEvent, resolveModuleForEvent, getCourseModules } from '@/lib/courseUtils';
 import {
   ChevronLeft, ChevronRight, BookOpen, CheckSquare,
-  Clock, MapPin, X, ExternalLink, FileText, NotebookText,
+  Clock, MapPin, X, ExternalLink, FileText, NotebookText, Users,
 } from 'lucide-react';
-import type { Task, Exam, ScheduleEvent, Course, Document, StudyNote, CanvasModule } from '@/types';
+import type { Task, Exam, ScheduleEvent, Course, Document, StudyNote, CanvasModule, GroupMeeting } from '@/types';
 
 const HOUR_H = 64;
 const DAY_START = 8;
@@ -53,40 +54,18 @@ function isoWeekKey(date: Date): string {
   return `${date.getFullYear()}-${String(getISOWeek(date)).padStart(2, '0')}`;
 }
 
-function matchEventToCourse(title: string, courses: Course[]): Course | undefined {
-  const norm = (s: string) =>
-    s.toLowerCase().replace(/[()[\]:,./\\-]/g, ' ').replace(/\s+/g, ' ').trim();
-  const words = (s: string) => norm(s).split(' ').filter((w) => w.length > 3);
-
-  const titleWords = words(title);
-  if (titleWords.length === 0) return undefined;
-
-  let best: Course | undefined;
-  let bestScore = 0;
-
-  for (const course of courses) {
-    const cWords = words(course.name);
-    let matches = 0;
-    for (const cw of cWords) {
-      if (titleWords.some((tw) => tw.startsWith(cw) || cw.startsWith(tw))) matches++;
-    }
-    const score = matches / Math.max(cWords.length, 1);
-    if (score > bestScore && matches >= 1) { bestScore = score; best = course; }
-  }
-  return best;
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Selected =
   | { kind: 'task'; data: Task }
   | { kind: 'exam'; data: Exam }
-  | { kind: 'sched'; data: ScheduleEvent; matchedCourse?: Course; weekKey: string };
+  | { kind: 'sched'; data: ScheduleEvent; matchedCourse?: Course; weekKey: string }
+  | { kind: 'groupMeeting'; data: GroupMeeting };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
-  const { tasks, exams, scheduleEvents, courses, documents, notes, canvasModules } = useApp();
+  const { tasks, exams, scheduleEvents, courses, documents, notes, canvasModules, groupMeetings, courseMapping } = useApp();
   const courseMap = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
   const today = useMemo(() => {
@@ -98,9 +77,9 @@ export default function CalendarPage() {
 
   const eventCourseMap = useMemo(() => {
     const map = new Map<string, Course | undefined>();
-    for (const ev of scheduleEvents) map.set(ev.id, matchEventToCourse(ev.title, courses));
+    for (const ev of scheduleEvents) map.set(ev.id, resolveCourseForEvent(ev.title, courses, courseMapping));
     return map;
-  }, [scheduleEvents, courses]);
+  }, [scheduleEvents, courses, courseMapping]);
 
   const days = useMemo(() => {
     const base = Array.from({ length: 5 }, (_, i) => {
@@ -140,7 +119,7 @@ export default function CalendarPage() {
         <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <h1 className="text-base font-bold text-gray-900 w-36 text-center tabular-nums">
+        <h1 className="font-serif text-base w-36 text-center" style={{ color: 'var(--text-primary)' }}>
           Uge {weekNum} · {weekStart.getFullYear()}
         </h1>
         <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
@@ -148,8 +127,8 @@ export default function CalendarPage() {
         </button>
         {!isCurrent && (
           <button onClick={() => setWeekStart(getMondayOf(today))}
-            className="ml-2 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-            Denne uge
+            className="ml-2 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+            I dag
           </button>
         )}
       </div>
@@ -165,13 +144,16 @@ export default function CalendarPage() {
             {days.map((day, i) => {
               const isToday = sameDay(day, today);
               return (
-                <div key={i} className={`py-3 text-center border-l border-gray-100 ${isToday ? 'bg-blue-50' : ''}`}>
+                <div key={i} className={`py-3 text-center border-l border-gray-100 ${isToday ? 'bg-gray-50' : ''}`}>
                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
                     {day.toLocaleDateString('da-DK', { weekday: 'short' })}
                   </p>
-                  <p className={`text-2xl font-bold leading-none mt-0.5 ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>
-                    {day.getDate()}
-                  </p>
+                  <div className="relative inline-flex items-center justify-center mt-0.5">
+                    {isToday && <span className="absolute w-8 h-8 rounded-full bg-gray-900" />}
+                    <p className={`relative text-2xl font-bold leading-none w-8 h-8 flex items-center justify-center ${isToday ? 'text-white' : 'text-gray-800'}`}>
+                      {day.getDate()}
+                    </p>
+                  </div>
                   <p className="text-[10px] text-gray-300 mt-0.5">
                     {day.toLocaleDateString('da-DK', { month: 'short' })}
                   </p>
@@ -202,16 +184,42 @@ export default function CalendarPage() {
                 const isToday = sameDay(day, today);
                 const evs = scheduledFor(day);
                 const wk = isoWeekKey(day);
+                const dayStr = localDateStr(day);
+                const dayGroupMeetings = groupMeetings.filter((m) => m.date === dayStr && !m.timePoll);
                 return (
-                  <div key={ci} className={`relative border-l border-gray-100 ${isToday ? 'bg-blue-50/20' : ''}`}>
+                  <div key={ci} className={`relative border-l border-gray-100 ${isToday ? 'bg-gray-50/60' : ''}`}>
                     {hours.map((_, idx) => (
                       <div key={idx} className="absolute w-full border-t border-gray-50"
                         style={{ top: idx * HOUR_H }} />
                     ))}
 
+                    {/* Group meetings */}
+                    {dayGroupMeetings.map((gm) => {
+                      const startM = parseInt(gm.startTime.split(':')[0]) * 60 + parseInt(gm.startTime.split(':')[1]);
+                      const endM = parseInt(gm.endTime.split(':')[0]) * 60 + parseInt(gm.endTime.split(':')[1]);
+                      const top = Math.max(0, (startM - DAY_START * 60) / 60 * HOUR_H);
+                      const height = Math.max(20, (endM - startM) / 60 * HOUR_H);
+                      return (
+                        <button key={gm.id}
+                          onClick={() => setSelected({ kind: 'groupMeeting', data: gm })}
+                          className="absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 text-left overflow-hidden transition-all z-[2] border border-indigo-200 border-l-[6px] hover:shadow-sm"
+                          style={{ top, height, borderLeftColor: '#6366f1', backgroundColor: '#eef2ff' }}>
+                          <p className="text-[10px] font-semibold truncate leading-tight text-indigo-700">{gm.title}</p>
+                          {height > 34 && gm.location && (
+                            <p className="text-[9px] truncate text-indigo-400">{gm.location}</p>
+                          )}
+                          {height > 48 && (
+                            <p className="text-[9px] tabular-nums text-indigo-400">{gm.startTime}–{gm.endTime}</p>
+                          )}
+                        </button>
+                      );
+                    })}
+
                     {evs.map((ev) => {
                       const matched = eventCourseMap.get(ev.id);
-                      const colors = getCourseColor(matched?.color, matched?.id ?? ev.id);
+                      const colorKey = matched?.id ?? ev.title;
+                      const colors = getCourseColor(matched?.color, colorKey);
+                      const hex = getCourseHex(matched?.color, colorKey);
                       const startM = minutesFromMidnight(ev.start);
                       const endM = minutesFromMidnight(ev.end);
                       const top = Math.max(0, (startM - DAY_START * 60) / 60 * HOUR_H);
@@ -219,14 +227,14 @@ export default function CalendarPage() {
                       return (
                         <button key={ev.id}
                           onClick={() => setSelected({ kind: 'sched', data: ev, matchedCourse: matched, weekKey: wk })}
-                          className={`absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 text-left overflow-hidden transition-all z-[1] border ${colors.light} ${colors.border} hover:opacity-90 hover:shadow-sm`}
-                          style={{ top, height }}>
-                          <p className={`text-[10px] font-semibold truncate leading-tight ${colors.text}`}>{ev.title}</p>
+                          className="absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 text-left overflow-hidden transition-all z-[1] border border-gray-100 border-l-[6px] hover:shadow-sm"
+                          style={{ top, height, borderLeftColor: hex, backgroundColor: hex + '12' }}>
+                          <p className="text-[10px] font-semibold truncate leading-tight text-gray-800">{matched?.name ?? ev.title}</p>
                           {height > 34 && ev.location && (
-                            <p className={`text-[9px] truncate opacity-70 ${colors.text}`}>{ev.location}</p>
+                            <p className="text-[9px] truncate text-gray-400">{ev.location}</p>
                           )}
                           {height > 48 && (
-                            <p className={`text-[9px] tabular-nums opacity-60 ${colors.text}`}>
+                            <p className="text-[9px] tabular-nums text-gray-400">
                               {fmtTime(ev.start)}–{fmtTime(ev.end)}
                             </p>
                           )}
@@ -240,7 +248,7 @@ export default function CalendarPage() {
           ) : (
             <div className="flex items-center justify-center gap-2 py-14 text-gray-400">
               <Clock className="w-4 h-4 opacity-50" />
-              <span className="text-sm">Importer dit skema via "Skema"-knappen i topbaren</span>
+              <span className="text-sm">Importer dit skema via &quot;Skema&quot;-knappen i topbaren</span>
             </div>
           )}
         </div>
@@ -260,6 +268,9 @@ export default function CalendarPage() {
               documents={documents}
               notes={notes}
               canvasModules={canvasModules}
+              courseMapping={courseMapping}
+              scheduleEvents={scheduleEvents}
+              courses={courses}
               tasks={tasks}
               exams={exams}
               onClose={() => setSelected(null)}
@@ -273,12 +284,15 @@ export default function CalendarPage() {
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ selected, courseMap, documents, notes, canvasModules, tasks, exams, onClose }: {
+function DetailPanel({ selected, courseMap, documents, notes, canvasModules, courseMapping, scheduleEvents, courses, tasks, exams, onClose }: {
   selected: Selected;
   courseMap: Map<string, Course>;
   documents: Document[];
   notes: StudyNote[];
   canvasModules: CanvasModule[];
+  courseMapping: Record<string, string>;
+  scheduleEvents: ScheduleEvent[];
+  courses: Course[];
   tasks: Task[];
   exams: Exam[];
   onClose: () => void;
@@ -289,21 +303,68 @@ function DetailPanel({ selected, courseMap, documents, notes, canvasModules, tas
     </button>
   );
 
+  if (selected.kind === 'groupMeeting') {
+    const m = selected.data;
+    const fmtDateLong = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long' });
+    return (
+      <>
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-50 rounded-lg">
+              <Users className="w-4 h-4 text-indigo-500" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wide text-indigo-500">Gruppeøde</span>
+          </div>
+          {closeBtn}
+        </div>
+        <h2 className="font-bold text-gray-900 text-sm leading-snug mb-1">{m.title}</h2>
+        <div className="space-y-1.5 text-sm text-gray-600 mb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <span className="capitalize">{fmtDateLong(m.date)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-transparent shrink-0" />
+            <span className="tabular-nums">{m.startTime} – {m.endTime}</span>
+          </div>
+          {m.location && (
+            <div className="flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span>{m.location}</span>
+            </div>
+          )}
+        </div>
+        {m.description && <p className="text-xs text-gray-500 mb-3">{m.description}</p>}
+        {m.notes && (
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Mødenoter</p>
+            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{m.notes}</p>
+          </div>
+        )}
+      </>
+    );
+  }
+
   if (selected.kind === 'sched') {
     const ev = selected.data;
     const course = selected.matchedCourse;
-    const colors = getCourseColor(course?.color, course?.id ?? ev.id);
+    const colors = getCourseColor(course?.color, course?.id ?? ev.title);
 
     // Study notes for this week
     const courseNotes = course ? notes.filter((n) => n.courseId === course.id) : [];
     const shownNotes = courseNotes.filter((n) => n.week === selected.weekKey);
 
-    // Canvas modules for this course — always show all, user picks the right one
-    const courseModules = course
-      ? canvasModules.filter((m) => m.courseId === course.id).sort((a, b) => a.position - b.position)
-      : [];
+    // Week-number match → chronological fallback → all course modules
+    const resolvedModule = resolveModuleForEvent(ev, course, scheduleEvents, canvasModules, courseMapping, courses);
+    const allCourseModules = course ? getCourseModules(course.id, canvasModules) : [];
+    const courseModules = resolvedModule ? [resolvedModule] : allCourseModules;
 
-    const hasContent = shownNotes.length > 0 || courseModules.length > 0;
+    // Flat documents fallback (when no Canvas modules exist for this course)
+    const courseDocuments = course ? documents.filter((d) => d.courseId === course.id) : [];
+    // DEBUG: document matching
+    console.log(`[calendar] event="${ev.title}" → course=${course ? `"${course.name}" (id=${course.id})` : 'NOT RESOLVED'} → Documents for ${course?.name ?? 'unknown'}: ${courseDocuments.length} found, canvasModules: ${courseModules.length}`);
+
+    const hasContent = shownNotes.length > 0 || courseModules.length > 0 || courseDocuments.length > 0;
 
     return (
       <>
@@ -314,13 +375,16 @@ function DetailPanel({ selected, courseMap, documents, notes, canvasModules, tas
             </div>
             <div>
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Undervisning</span>
-              {course && <p className={`text-xs font-semibold leading-tight ${colors.text}`}>{course.name}</p>}
             </div>
           </div>
           {closeBtn}
         </div>
 
-        <h2 className="font-bold text-gray-900 leading-snug mb-3 text-sm">{ev.title}</h2>
+        <h2 className="font-bold text-gray-900 leading-snug mb-1 text-sm">{course?.name ?? ev.title}</h2>
+        {course && ev.title !== course.name && (
+          <p className="text-xs text-gray-400 mb-3 leading-snug">{ev.title}</p>
+        )}
+        {!course && <div className="mb-3" />}
 
         <div className="space-y-1.5 text-sm text-gray-600 mb-4">
           <div className="flex items-center gap-2">
@@ -355,10 +419,11 @@ function DetailPanel({ selected, courseMap, documents, notes, canvasModules, tas
             </div>
           )}
 
-          {/* Canvas modules — all of them, user picks the right one */}
           {courseModules.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Canvas moduler</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">
+                {resolvedModule ? 'Dagens modul' : 'Canvas moduler'}
+              </p>
               <div className="space-y-0.5">
                 {courseModules.map((mod) => (
                   <details key={mod.id}>
@@ -381,10 +446,29 @@ function DetailPanel({ selected, courseMap, documents, notes, canvasModules, tas
               </div>
             </div>
           )}
+
+          {courseModules.length === 0 && courseDocuments.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Dokumenter</p>
+              <div className="space-y-0.5">
+                {courseDocuments.map((doc) => (
+                  <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-gray-50 transition-colors group">
+                    <FileText className="w-3.5 h-3.5 text-gray-300 shrink-0 group-hover:text-gray-500" />
+                    <span className="text-xs text-gray-700 truncate flex-1">{doc.title}</span>
+                    {doc.tags.length > 0 && (
+                      <span className="text-[10px] text-gray-300 shrink-0">{doc.tags[0]}</span>
+                    )}
+                    <ExternalLink className="w-3 h-3 text-gray-200 shrink-0 group-hover:text-blue-400" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>}
 
         {!hasContent && course && (
-          <p className="text-xs text-gray-300 italic">Ingen dokumenter fundet for {course.name}. Kør Canvas sync.</p>
+          <p className="text-xs text-gray-300 italic">Ingen dokumenter fundet for {course.name}. Tilføj dokumenter under Fag eller kør Canvas sync.</p>
         )}
         {!course && (
           <p className="text-[10px] text-gray-300 italic">

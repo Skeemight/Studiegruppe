@@ -20,11 +20,11 @@ export default function MeetingsPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-[780px] mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Møder</h1>
-          <p className="text-sm text-gray-500 mt-1">{meetings.length} planlagt</p>
+          <h1 className="font-serif text-[32px] leading-tight" style={{ color: 'var(--text-primary)' }}>Møder</h1>
+          <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{meetings.length} planlagt</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus className="w-4 h-4 mr-1" />

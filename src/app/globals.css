@@ -1,8 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
+:root {
+  --bg-primary: #F7F5F0;
+  --bg-surface: #FFFFFF;
+  --border: #E8E4DD;
+  --border-hover: #D4CFC7;
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6560;
+  --text-muted: #9C9590;
+  --accent-primary: #C45D3E;
+  --accent-primary-hover: #A94E34;
+  --accent-secondary: #2B6B5E;
+  --accent-error: #BB4444;
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --shadow-modal: 0 1px 3px rgba(0,0,0,0.06);
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+}
+
+html, body {
   height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Fonts */
+.font-serif { font-family: var(--font-serif); }
+.font-mono { font-family: var(--font-mono); }
+
+/* Page enter */
+.page-enter {
+  animation: pageIn 0.2s ease both;
+}
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Section label — uppercase, small caps, letter-spaced */
+.section-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* Scrollbar — warm */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* Skeleton loading pulse — warm */
+@keyframes warmPulse {
+  0%, 100% { background-color: #F0EDE7; }
+  50%      { background-color: #FAFAF8; }
+}
+.skeleton-pulse {
+  animation: warmPulse 1.5s ease-in-out infinite;
+}
+
+/* Custom checkbox — terracotta */
+.check-custom {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+.check-custom:hover {
+  border-color: var(--accent-primary);
+}
+.check-custom:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.check-custom:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  animation: checkDraw 0.3s ease both;
+}
+@keyframes checkDraw {
+  from { opacity: 0; transform: rotate(45deg) scale(0.5); }
+  to   { opacity: 1; transform: rotate(45deg) scale(1); }
+}
+
+/* Hover lift for interactive cards */
+.hover-lift {
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+.hover-lift:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-hover);
+}
+
+/* Warm divider */
+.divider {
+  border-top: 1px solid var(--border);
 }

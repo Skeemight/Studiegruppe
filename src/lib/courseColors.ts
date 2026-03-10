@@ -20,6 +20,15 @@ export const DOT_COLORS: Record<CourseColor, string> = {
   orange: '#f97316', pink: '#ec4899',
 };
 
+export function getCourseHex(color?: string, courseId?: string): string {
+  if (color && DOT_COLORS[color as CourseColor]) return DOT_COLORS[color as CourseColor];
+  if (courseId) {
+    const hash = [...courseId].reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return DOT_COLORS[COURSE_COLORS[hash % COURSE_COLORS.length]];
+  }
+  return DOT_COLORS.blue;
+}
+
 export function getCourseColor(color?: string, courseId?: string) {
   if (color && COLOR_MAP[color as CourseColor]) return COLOR_MAP[color as CourseColor];
   if (courseId) {

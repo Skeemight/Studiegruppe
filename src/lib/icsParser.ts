@@ -51,10 +51,12 @@ export function parseICS(text: string): ScheduleEvent[] {
     if (!dtstart || !summary) continue;
 
     try {
+      const start = parseICSDate(dtstart);
       events.push({
-        id: `ics-${uid}`,
+        // Include dtstart in ID so recurring events (same UID, different dates) get unique IDs
+        id: `ics-${uid}-${dtstart}`,
         title: summary,
-        start: parseICSDate(dtstart),
+        start,
         end: parseICSDate(dtend!),
         ...(location ? { location } : {}),
       });

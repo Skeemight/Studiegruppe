@@ -17,11 +17,11 @@ export default function ExamsPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-[780px] mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Eksamener</h1>
-          <p className="text-sm text-gray-500 mt-1">{exams.length} planlagt</p>
+          <h1 className="font-serif text-[32px] leading-tight" style={{ color: 'var(--text-primary)' }}>Eksamener</h1>
+          <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{exams.length} planlagt</p>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="w-4 h-4 mr-1" />
@@ -35,7 +35,7 @@ export default function ExamsPage() {
           <p className="text-sm mt-1">Tilføj en eksamen for at begynde at holde styr på din forberedelse.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {sorted.map((exam) => (
             <ExamCard key={exam.id} exam={exam} />
           ))}

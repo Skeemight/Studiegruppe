@@ -145,11 +145,8 @@ export default function FocusPage() {
   const totalItems = weekFocus.filter((f) => f.week === selectedWeek).length;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ugefokus</h1>
-        <p className="text-sm text-gray-500 mt-1">Hvad dækker vi denne uge?</p>
-      </div>
+    <div className="max-w-[780px] mx-auto space-y-6">
+      <h1 className="font-serif text-[32px] leading-tight" style={{ color: 'var(--text-primary)' }}>Fokus</h1>
 
       {/* Week navigation */}
       <div className="flex items-center gap-3">

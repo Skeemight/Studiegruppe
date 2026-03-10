@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
 import { parseICS } from '@/lib/icsParser';
+import { matchEventToCourse } from '@/lib/courseUtils';
+import { COURSE_COLORS } from '@/lib/courseColors';
 import type { ScheduleEvent } from '@/types';
 import { CalendarDays, Upload, X } from 'lucide-react';
 
@@ -12,7 +14,7 @@ interface IcsImportModalProps {
 }
 
 export function IcsImportModal({ onClose }: IcsImportModalProps) {
-  const { setScheduleEvents, scheduleEvents } = useApp();
+  const { setScheduleEvents, scheduleEvents, courses, addCourse } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ScheduleEvent[] | null>(null);
   const [fileName, setFileName] = useState('');
@@ -33,6 +35,28 @@ export function IcsImportModal({ onClose }: IcsImportModalProps) {
   function handleImport() {
     if (!preview) return;
     setScheduleEvents(preview);
+
+    // Auto-create courses for ICS event titles that don't match any existing course
+    const uniqueTitles = [...new Set(preview.map(ev => ev.title))];
+    const usedColors = new Set(courses.map(c => c.color).filter(Boolean));
+    const createdNames: string[] = [];
+    let colorIdx = 0;
+    for (const title of uniqueTitles) {
+      if (matchEventToCourse(title, courses)) continue;
+      // Pick a short name: text before first parenthesis, or full title
+      const shortName = title.includes('(') ? title.slice(0, title.indexOf('(')).trim() : title;
+      // Skip if we already created a course with a similar name in this batch
+      const normShort = shortName.toLowerCase().trim();
+      if (createdNames.some(n => n === normShort || n.startsWith(normShort) || normShort.startsWith(n))) continue;
+      createdNames.push(normShort);
+      // Pick next unused color
+      const available = COURSE_COLORS.filter(c => !usedColors.has(c));
+      const color = available[colorIdx % Math.max(available.length, 1)] ?? COURSE_COLORS[colorIdx % COURSE_COLORS.length];
+      usedColors.add(color);
+      colorIdx++;
+      addCourse({ name: shortName, semester: 'F26', color });
+    }
+
     onClose();
   }
 

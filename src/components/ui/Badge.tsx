@@ -1,10 +1,10 @@
 type BadgeVariant = 'todo' | 'in_progress' | 'done' | 'default';
 
-const STYLES: Record<BadgeVariant, string> = {
-  todo: 'bg-gray-100 text-gray-600',
-  in_progress: 'bg-blue-50 text-blue-700',
-  done: 'bg-green-50 text-green-700',
-  default: 'bg-gray-100 text-gray-600',
+const STYLES: Record<BadgeVariant, { bg: string; text: string }> = {
+  todo:        { bg: 'var(--border)', text: 'var(--text-secondary)' },
+  in_progress: { bg: 'var(--accent-primary)', text: '#fff' },
+  done:        { bg: 'var(--accent-secondary)', text: '#fff' },
+  default:     { bg: 'var(--border)', text: 'var(--text-secondary)' },
 };
 
 const LABELS: Partial<Record<BadgeVariant, string>> = {
@@ -19,8 +19,16 @@ interface BadgeProps {
 }
 
 export function Badge({ variant = 'default', children }: BadgeProps) {
+  const s = STYLES[variant];
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STYLES[variant]}`}>
+    <span
+      className="inline-flex items-center px-2 py-0.5 text-xs font-medium"
+      style={{
+        backgroundColor: s.bg,
+        color: s.text,
+        borderRadius: 'var(--radius-sm)',
+      }}
+    >
       {children ?? LABELS[variant] ?? variant}
     </span>
   );

@@ -95,6 +95,12 @@ function DocSection({ label, count, docs, getSubtitle, onDelete, defaultOpen, fi
       </button>
       {open && (
         <div className="px-4 border-t border-gray-50">
+          {fileError && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-600 py-2.5 border-b border-gray-50">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              Filer ikke tilgængelige — instruktøren har begrænset adgang på Canvas.
+            </p>
+          )}
           {docs.map((doc) => (
             <DocRow key={doc.id} doc={doc} subtitle={getSubtitle?.(doc)} onDelete={() => onDelete(doc.id)} />
           ))}
@@ -194,11 +200,11 @@ export default function DocumentsPage() {
   }, [filtered, courses, courseMap, sort]);
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-[780px] mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dokumenter</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="font-serif text-[32px] leading-tight" style={{ color: 'var(--text-primary)' }}>Dokumenter</h1>
+          <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             {hasFilters ? `${filtered.length} af ${documents.length} filer` : `${documents.length} filer`}
           </p>
         </div>
@@ -319,7 +325,6 @@ export default function DocumentsPage() {
               label={label}
               count={docs.length}
               docs={docs}
-              defaultOpen={i === 0}
               getSubtitle={sort !== 'fag' ? (doc) => courseMap.get(doc.courseId)?.name : undefined}
               onDelete={deleteDocument}
               fileError={sort === 'fag' ? fileErrors.get(key) : undefined}

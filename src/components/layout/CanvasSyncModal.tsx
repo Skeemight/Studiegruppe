@@ -16,6 +16,7 @@ import {
   type MergeRule,
   type SyncResult,
 } from '@/lib/canvasApi';
+import { generateActivityAfterSync } from '@/lib/activityFeed';
 
 interface CanvasCourse {
   id: number;
@@ -36,7 +37,7 @@ interface Props {
 }
 
 export function CanvasSyncModal({ onClose }: Props) {
-  const { upsertCourses, upsertTasks, upsertDocuments, upsertModules, pruneCanvasData, mergeCourses } = useApp();
+  const { upsertCourses, upsertTasks, upsertDocuments, upsertModules, pruneCanvasData, mergeCourses, documents, canvasModules, courses } = useApp();
 
   const [step, setStep] = useState<Step>('settings');
   const [url, setUrl] = useState('');
@@ -89,12 +90,22 @@ export function CanvasSyncModal({ onClose }: Props) {
     localStorage.setItem(CANVAS_SELECTED_KEY, JSON.stringify([...selectedIds]));
     setLoading(true);
     setError('');
+    const prevDocs = documents;
+    const prevModules = canvasModules;
+    let nextDocs = prevDocs;
+    let nextModules = prevModules;
     try {
       const res = await runCanvasSync(
         url.trim().replace(/\/$/, ''),
         token.trim(),
         selectedIds,
-        { upsertCourses, upsertTasks, upsertDocuments, upsertModules, pruneCanvasData }
+        {
+          upsertCourses,
+          upsertTasks,
+          upsertDocuments: (docs) => { nextDocs = docs; upsertDocuments(docs); },
+          upsertModules: (mods) => { nextModules = mods; upsertModules(mods); },
+          pruneCanvasData,
+        }
       );
 
       // Apply saved merge rules
@@ -103,6 +114,7 @@ export function CanvasSyncModal({ onClose }: Props) {
       }
 
       localStorage.setItem(CANVAS_LAST_SYNC_KEY, new Date().toISOString());
+      generateActivityAfterSync(prevDocs, prevModules, nextDocs, nextModules, courses);
       setResult(res);
       setStep('done');
     } catch (err) {

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
-import { COURSE_COLORS, DOT_COLORS, type CourseColor } from '@/lib/courseColors';
+import { COURSE_COLORS, type CourseColor } from '@/lib/courseColors';
+import { ColorPicker } from '@/components/ui/ColorPicker';
 
 interface AddFagFormProps {
   onClose: () => void;
@@ -66,18 +67,7 @@ export function AddFagForm({ onClose }: AddFagFormProps) {
       </Field>
 
       <Field label="Farve">
-        <div className="flex items-center gap-2 flex-wrap">
-          {COURSE_COLORS.map((color) => (
-            <button
-              key={color}
-              type="button"
-              onClick={() => setForm({ ...form, color })}
-              className={`w-7 h-7 rounded-full transition-all ${form.color === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-105'}`}
-              style={{ backgroundColor: DOT_COLORS[color] }}
-              title={color}
-            />
-          ))}
-        </div>
+        <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
       </Field>
 
       <div className="flex gap-2 pt-2">

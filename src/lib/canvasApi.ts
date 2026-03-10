@@ -6,6 +6,7 @@ export const CANVAS_SELECTED_KEY = 'sg_canvas_selected_ids';
 export const CANVAS_LAST_SYNC_KEY = 'sg_canvas_last_sync';
 export const CANVAS_MERGE_RULES_KEY = 'sg_canvas_merge_rules';
 export const CANVAS_FILE_ERRORS_KEY = 'sg_canvas_file_errors';
+export const CANVAS_BOILERPLATE_MODULE = 'course description including examination rules';
 
 export interface FileError {
   courseId: string;
@@ -185,6 +186,25 @@ export async function runCanvasSync(
       const msg = res.reason instanceof Error ? res.reason.message : String(res.reason);
       fileErrors.push({ courseName: course.name, reason: msg });
       persistedErrors.push({ courseId: `canvas-${course.id}`, courseName: course.name, reason: msg });
+      // Fallback: files API blocked — extract module items as flat documents instead
+      const modRes = moduleResults[i];
+      if (modRes?.status === 'fulfilled') {
+        modRes.value.forEach((mod) => {
+          (mod.items ?? [])
+            .filter((item) => item.type !== 'SubHeader' && (item.html_url ?? item.url))
+            .forEach((item) => {
+              const ext = item.title.match(/\.([a-zA-Z0-9]{2,5})$/)?.[1]?.toLowerCase() ?? '';
+              mappedDocs.push({
+                id: `canvas-moditem-doc-${item.id}`,
+                title: item.title,
+                courseId: `canvas-${course.id}`,
+                url: (item.html_url ?? item.url) as string,
+                tags: ext ? [ext] : [],
+                createdAt: undefined,
+              });
+            });
+        });
+      }
       return;
     }
     const ext = (f: CanvasFile) => f.display_name.split('.').pop()?.toLowerCase() ?? '';

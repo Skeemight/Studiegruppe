@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useApp } from '@/store/AppContext';
-import { Card } from '@/components/ui/Card';
 import { BookOpen, ArrowRight } from 'lucide-react';
 
 export function NextExam() {
@@ -18,12 +17,13 @@ export function NextExam() {
     : null;
 
   return (
-    <Card>
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-        <h2 className="font-semibold text-gray-900 text-sm">Næste eksamen</h2>
+    <div className="bg-white" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+        <p className="section-label">Næste eksamen</p>
         <Link
           href="/exams"
-          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
+          className="text-xs flex items-center gap-1 font-medium hover:underline"
+          style={{ color: 'var(--accent-primary)' }}
         >
           Se alle <ArrowRight className="w-3 h-3" />
         </Link>
@@ -31,18 +31,16 @@ export function NextExam() {
 
       <div className="p-5">
         {!nextExam ? (
-          <p className="text-sm text-gray-400 text-center py-6">Ingen kommende eksamener.</p>
+          <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Ingen kommende eksamener.</p>
         ) : (
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-purple-50 rounded-lg shrink-0">
-                <BookOpen className="w-5 h-5 text-purple-600" />
-              </div>
+              <BookOpen className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
               <div>
-                <p className="font-semibold text-gray-900 text-sm leading-snug">
+                <p className="font-semibold text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
                   {getCourseById(nextExam.courseId)?.name ?? 'Ukendt fag'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                   {new Date(nextExam.date).toLocaleDateString('da-DK', {
                     weekday: 'long',
                     day: 'numeric',
@@ -52,19 +50,19 @@ export function NextExam() {
               </div>
             </div>
 
-            <div className="bg-purple-50 rounded-xl px-4 py-3 text-center">
-              <span className="text-3xl font-bold text-purple-700">{daysUntil}</span>
-              <p className="text-xs text-purple-500 mt-0.5 font-medium">dage tilbage</p>
+            <div className="px-4 py-3 text-center" style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-md)' }}>
+              <span className="font-mono text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>{daysUntil}</span>
+              <p className="text-xs mt-0.5 font-medium" style={{ color: 'var(--text-muted)' }}>dage tilbage</p>
             </div>
 
             {nextExam.notes && (
-              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2.5 leading-relaxed">
+              <p className="text-xs leading-relaxed px-3 py-2.5" style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)' }}>
                 {nextExam.notes}
               </p>
             )}
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
