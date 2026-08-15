@@ -5,14 +5,17 @@ build, server eller internetforbindelse: `public/leanowski.html`.
 
 ## Sådan kommer I i gang
 
-**Nemmest:** åbn `leanowski.html` direkte i browseren på den tablet/computer
-der står i baren, og gem den som bogmærke.
+**Fra mobilen:** https://claude.ai/code/artifact/00a7b4dc-d622-4772-ae05-64646a82ecb2
+
+**Nemmest i baren:** åbn `leanowski.html` direkte i browseren på den
+tablet/computer der står der, og gem den som bogmærke. Læg den på hjemmeskærmen
+på en iPad, så åbner den som en app.
 
 **Hvis Studiegruppe-sitet er deployet:** siden ligger også på
-`https://<jeres-adresse>/leanowski.html`. Så kan den åbnes fra hvilken som helst
-telefon — men husk at hver enhed har sin egen kopi af dataene (se Backup).
+`https://<jeres-adresse>/leanowski.html`.
 
-Læg den på hjemmeskærmen på en iPad, så åbner den som en app.
+Vælg ét sted og bliv der. Hver enhed, browser og udgave har sin egen kopi af
+dataene — skal sæsonen flyttes, går det gennem backup-filen.
 
 ## Formatet
 
@@ -66,3 +69,15 @@ af tests der kører den rigtige kode direkte fra HTML-filen:
 ```bash
 npm run test:leanowski
 ```
+
+## Den hostede udgave
+
+`public/leanowski.html` er den eneste kildefil. Den hostede kopi genereres ud af
+den, så de to ikke kan drive fra hinanden:
+
+```bash
+node scripts/build-leanowski-artifact.js /sti/til/leanowski-liga.html
+```
+
+Er filen ændret, skal den hostede udgave bygges og lægges op igen på **samme
+URL** — ellers ender I med to sider og to adskilte sæsoner.

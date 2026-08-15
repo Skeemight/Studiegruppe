@@ -584,6 +584,36 @@ function fmtDate(iso){
     return new Intl.DateTimeFormat('da-DK',{day:'numeric',month:'short',year:'numeric'}).format(d);
   }catch(e){ return iso; }
 }
+/**
+ * Kører siden indlejret (iframe / hosted preview)? Så blokerer sandkassen
+ * fil-downloads, og backup skal tages som tekst i stedet.
+ */
+function inFrame(){
+  try{ return window.self !== window.top; }catch(e){ return true; }
+}
+/**
+ * Kører siden hosted, kan den ikke selv starte en download — værten leverer
+ * filen i stedet. Sættes når/hvis den mulighed er til stede.
+ */
+var hostDownloads = null;
+function claudeUse(name){
+  try{
+    if(window.claude && typeof window.claude.use === 'function') return window.claude.use(name);
+  }catch(e){}
+  return Promise.resolve(null);
+}
+/** Kan brugeren overhovedet få en fil ud herfra? */
+function downloadsWork(){ return !!hostDownloads || !inFrame(); }
+
+/** Kan browseren overhovedet gemme? Privat browsing og blokerede cookies kan slå det fra. */
+var storageOK = (function(){
+  try{
+    localStorage.setItem('__lb_test','1');
+    localStorage.removeItem('__lb_test');
+    return true;
+  }catch(e){ return false; }
+})();
+
 function daysSince(iso){
   if(!iso) return null;
   var d = new Date(iso);
@@ -832,7 +862,9 @@ function viewSeason(){
   var ranked = st.filter(function(r){ return r.played > 0; });
   var done = s.tournaments.filter(function(t){ return buildBracket(t).complete; }).length;
   var bkDays = daysSince(state.lastBackupAt);
-  var bkChip = state.lastBackupAt
+  var bkChip = !storageOK
+    ? '<span class="chip bad btn-like" data-act="data">⚠️ Browseren gemmer ikke — kopiér data ud efter hver turnering</span>'
+    : state.lastBackupAt
     ? (bkDays > 14 ? '<span class="chip warn btn-like" data-act="data">⚠️ Backup ' + plural(bkDays,'dag siden','dage siden') + '</span>'
                    : '<span class="chip ok btn-like" data-act="data">✓ Backup ' + (bkDays === 0 ? 'i dag' : plural(bkDays,'dag siden','dage siden')) + '</span>')
     : '<span class="chip bad btn-like" data-act="data">⚠️ Ingen backup taget</span>';
@@ -1445,13 +1477,19 @@ function finishTournament(){
 function maybeNudgeBackup(){
   var d = daysSince(state.lastBackupAt);
   if(state.lastBackupAt && d !== null && d < 7) return;
+  var canFile = downloadsWork();
   setTimeout(function(){
     confirmDialog({
       title:'Tag en backup?',
-      body:'<p>Sæsonen ligger kun i denne browser. Hent en backup-fil, så I aldrig mister stillingen.</p>' +
+      body:'<p>Sæsonen ligger kun i denne browser. ' +
+        (canFile ? 'Hent en backup-fil' : 'Kopiér den ud som tekst') + ', så I aldrig mister stillingen.</p>' +
         '<p class="hint">' + (state.lastBackupAt ? 'Sidste backup: ' + fmtDate(state.lastBackupAt.slice(0,10)) : 'Der er aldrig taget backup.') + '</p>',
-      okText:'Hent backup', cancelText:'Senere'
-    }).then(function(ok){ if(ok) exportData(); });
+      okText: canFile ? 'Hent backup' : 'Kopiér data',
+      cancelText:'Senere'
+    }).then(function(ok){
+      if(!ok) return;
+      if(canFile) exportData(); else copyData();
+    });
   }, 700);
 }
 
@@ -1558,13 +1596,23 @@ function dataModal(){
         '</div>' +
       '</div>' +
 
-      '<p class="dim" style="margin-top:0">Alt gemmes automatisk i denne browser. Hent en backup-fil med jævne mellemrum — så kan sæsonen altid hentes tilbage, også på en anden telefon eller computer.</p>' +
+      '<p class="dim" style="margin-top:0">Alt gemmes automatisk i denne browser. Tag en backup med jævne mellemrum — så kan sæsonen altid hentes tilbage, også på en anden telefon eller computer.</p>' +
+
+      (downloadsWork()
+        ? ''
+        : '<p class="hint warn">Siden kører indlejret, og her må browseren ikke downloade filer. ' +
+          'Brug <b>Kopiér data som tekst</b> og gem teksten i en note, en mail til jer selv eller Drive.</p>') +
 
       '<div class="stack-8" style="margin-top:14px">' +
-        '<button class="btn primary wide" data-c="export">💾 Hent backup-fil (.json)</button>' +
-        '<button class="btn wide" data-c="import">📂 Indlæs backup-fil</button>' +
-        '<button class="btn ghost wide" data-c="copy">📋 Kopiér data som tekst</button>' +
-        '<button class="btn ghost wide" data-c="paste">📥 Indsæt data fra tekst</button>' +
+        (downloadsWork()
+          ? '<button class="btn primary wide" data-c="export">💾 Hent backup-fil (.json)</button>' +
+            '<button class="btn wide" data-c="import">📂 Indlæs backup-fil</button>' +
+            '<button class="btn ghost wide" data-c="copy">📋 Kopiér data som tekst</button>' +
+            '<button class="btn ghost wide" data-c="paste">📥 Indsæt data fra tekst</button>'
+          : '<button class="btn primary wide" data-c="copy">📋 Kopiér data som tekst</button>' +
+            '<button class="btn wide" data-c="paste">📥 Indsæt data fra tekst</button>' +
+            '<button class="btn ghost wide" data-c="export">💾 Prøv at hente fil alligevel</button>' +
+            '<button class="btn ghost wide" data-c="import">📂 Indlæs backup-fil</button>') +
       '</div>' +
       '<input type="file" id="fileIn" accept="application/json,.json" hidden>' +
 
@@ -1599,17 +1647,39 @@ function dataFilename(){
   var nm = season().name.toLowerCase().replace(/[^a-z0-9æøå]+/gi,'-').replace(/^-|-$/g,'');
   return 'leanowski-beerpong-' + (nm || 'saeson') + '-' + todayISO() + '.json';
 }
+function markBackupTaken(){
+  state.lastBackupAt = new Date().toISOString();
+  save(); render();
+}
 function exportData(){
+  var json = JSON.stringify(state, null, 2);
+  var name = dataFilename();
+  if(hostDownloads){
+    // Hosted udgave: filen skal leveres gennem værten, som spørger brugeren.
+    hostDownloads.save({ filename:name, data:json }).then(function(){
+      markBackupTaken();
+      toast('Backup gemt ✓', 'ok');
+    }, function(err){
+      var code = err && err.code;
+      if(code === 'declined') return;                       // brugeren sagde nej
+      if(code === 'rate_limited'){ toast('Vent et øjeblik og prøv igen', 'err'); return; }
+      toast('Kunne ikke gemme filen — brug "Kopiér data som tekst"', 'err');
+    });
+    return;
+  }
   try{
-    var json = JSON.stringify(state, null, 2);
     var blob = new Blob([json], { type:'application/json' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = dataFilename();
+    a.href = url; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-    state.lastBackupAt = new Date().toISOString();
-    save(); render();
+    if(inFrame()){
+      // Indlejret uden download-adgang: klikket fejler lydløst, så lov ingenting.
+      toast('Kom der ingen fil? Brug "Kopiér data som tekst"');
+      return;
+    }
+    markBackupTaken();
     toast('Backup hentet ✓', 'ok');
   }catch(e){
     toast('Download blokeret — brug "Kopiér data som tekst"', 'err');
@@ -1719,8 +1789,10 @@ function helpModal(){
 
       '<h3 style="font-size:15px;margin:16px 0 6px">Så data ikke går tabt</h3>' +
       '<p class="dim" style="margin-top:0">Alt gemmes automatisk i browseren på den enhed I bruger — også uden internet. ' +
-      'Men browserdata kan blive ryddet, så tryk på 💾 og hent en backup-fil efter hver turnering. ' +
-      'Filen kan lægges i Dropbox/Drive eller mailes, og indlæses igen på en hvilken som helst enhed.</p>' +
+      'Men browserdata kan blive ryddet, så tryk på 💾 efter hver turnering og tag en backup. ' +
+      (downloadsWork()
+        ? 'Filen kan lægges i Dropbox/Drive eller mailes, og indlæses igen på en hvilken som helst enhed.'
+        : 'Her kører siden indlejret, så downloads er slået fra: brug <b>Kopiér data som tekst</b> og gem teksten i en note eller en mail til jer selv.') + '</p>' +
       '<p class="hint warn">Brug den samme enhed og den samme browser hver gang — ellers ser I en tom sæson (indlæs så jeres backup).</p>' +
 
       '<h3 style="font-size:15px;margin:16px 0 6px">Fejlklik</h3>' +
@@ -1865,6 +1937,14 @@ if(!state){
 }
 if(activeTournament()) view = 'tournament';
 render();
+
+// Kører siden hosted, kan den få lov at levere backup-filen gennem værten.
+// Findes muligheden ikke, bliver det ved den almindelige download.
+claudeUse('downloads').then(function(dl){
+  if(!dl) return;
+  hostDownloads = dl;
+  render();
+});
 
 })();
 </script>
