@@ -3,41 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d0f14">
+<meta name="theme-color" content="#1d4234">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Leanowski · Beer Pong Liga</title>
+<title>Léanowski Beer Pong Liga</title>
 <style>
+/* Paletten er trukket ud af logoet: skovgrøn flade, cremefarvet tekst.
+   Messing er den eneste accent — den sidder klassisk mod dyb grøn og er
+   samtidig den tone medaljerne skal bruge. Alle neutraler er grønbøjede,
+   så intet på siden falder tilbage til et fremmed gråt. */
 :root{
-  --bg:#0d0f14;
-  --bg-2:#12151c;
-  --surface:#171b24;
-  --surface-2:#1e2430;
-  --surface-3:#262d3b;
-  --border:#2c3442;
-  --border-soft:#232a36;
-  --text:#f2f2ef;
-  --text-2:#a6adbb;
-  --muted:#727b8b;
-  --accent:#f5a524;
-  --accent-2:#ffc24a;
-  --accent-dim:rgba(245,165,36,.14);
-  --green:#3ecf8e;
-  --red:#e5484d;
-  --gold:#ffca45;
-  --silver:#cbd5e1;
-  --bronze:#d08c4a;
-  --fourth:#78839a;
+  --brand-rgb:29,66,52;             /* logoets grønne */
+  --brand:rgb(var(--brand-rgb));
+  --cream:#f3f1ea;                  /* logoets off-white */
+
+  --bg:#0d1a15;
+  --bg-2:#112019;
+  --surface:#152a22;
+  --surface-2:#1b3529;
+  --surface-3:#234034;
+  --border:#2d5344;
+  --border-soft:#20392f;
+
+  --text:#f3f1ea;
+  --text-2:#a9bcb1;
+  --muted:#7b9187;
+
+  --accent:#e0a03c;         /* messing */
+  --accent-2:#f2ba5c;
+  --accent-dim:rgba(224,160,60,.15);
+  --on-accent:#1d1405;      /* tekst oven på messing */
+
+  --ok:#4bbd8b;
+
+  --gold:#e8b849;
+  --silver:#c3cec6;
+  --bronze:#d29b68;
+  --fourth:#94ab9e;
+  --on-medal:#14231c;       /* tekst oven på medaljefarver */
+
   --r-sm:8px; --r:12px; --r-lg:18px;
-  --shadow:0 10px 30px rgba(0,0,0,.45);
+  --shadow:0 10px 30px rgba(0,0,0,.5);
   --font:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
   background:
-    radial-gradient(1000px 520px at 15% -10%,rgba(245,165,36,.10),transparent 60%),
-    radial-gradient(800px 420px at 100% 0%,rgba(62,207,142,.06),transparent 55%),
+    radial-gradient(1100px 560px at 12% -14%,rgba(var(--brand-rgb),.9),transparent 62%),
+    radial-gradient(780px 430px at 100% -4%,rgba(224,160,60,.07),transparent 56%),
     var(--bg);
   color:var(--text);
   font-family:var(--font);
@@ -49,28 +63,36 @@ body{
 }
 button{font-family:inherit}
 h1,h2,h3{margin:0;line-height:1.2}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* ---------- layout ---------- */
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
 .topbar{
   position:sticky;top:0;z-index:40;
-  background:rgba(13,15,20,.88);
+  background:rgba(var(--brand-rgb),.94);   /* logoets flade, så indhold kan glide under */
   backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border-soft);
+  border-bottom:1px solid rgba(243,241,234,.1);
 }
-.topbar-in{display:flex;align-items:center;gap:12px;padding:12px 0;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
-.logo{width:34px;height:34px;flex:0 0 34px}
+.topbar-in{display:flex;align-items:center;gap:12px;padding:11px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px;margin-right:auto;min-width:0}
+.logo{width:30px;height:30px;flex:0 0 30px}
 .brand-txt{min-width:0}
-.brand-name{font-weight:800;letter-spacing:.14em;font-size:14px;text-transform:uppercase;white-space:nowrap}
-.brand-sub{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
-.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border-soft);border-radius:999px;padding:4px}
+/* Ordmærket sat som i logoet: cremefarvet, tungt, versaler, stram knibning. */
+.brand-name{
+  font-weight:800;font-size:17px;line-height:1;color:var(--cream);
+  letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;
+}
+.brand-sub{
+  font-size:9.5px;color:var(--accent);letter-spacing:.22em;text-transform:uppercase;
+  white-space:nowrap;font-weight:700;margin-top:3px;
+}
+.tabs{display:flex;gap:4px;background:rgba(13,26,21,.5);border:1px solid rgba(243,241,234,.1);border-radius:999px;padding:4px}
 .tab{
-  border:0;background:none;color:var(--text-2);font-size:13px;font-weight:600;
+  border:0;background:none;color:rgba(243,241,234,.62);font-size:13px;font-weight:600;
   padding:8px 15px;border-radius:999px;cursor:pointer;white-space:nowrap;
 }
-.tab:hover{color:var(--text)}
-.tab.on{background:var(--accent);color:#231803}
+.tab:hover{color:var(--cream)}
+.tab.on{background:var(--accent);color:var(--on-accent)}
 .top-actions{display:flex;gap:8px;align-items:center}
 
 /* ---------- generic ---------- */
@@ -80,22 +102,23 @@ h1,h2,h3{margin:0;line-height:1.2}
   padding:10px 14px;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;
   transition:background .12s ease,border-color .12s ease,transform .08s ease;
 }
-.btn:hover{background:var(--surface-3);border-color:#3a4354}
+.btn:hover{background:var(--surface-3);border-color:#3b6553}
 .btn:active{transform:translateY(1px)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#231803}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
 .btn.ghost{background:transparent}
-.btn.danger{color:#ffb4b6;border-color:#4a2429;background:#241417}
-.btn.danger:hover{background:#31191d}
+.btn.danger{color:#ffb4b6;border-color:#5a2b2f;background:#2b171a}
+.btn.danger:hover{background:#3a1e22}
 .btn.sm{padding:7px 11px;font-size:13px;border-radius:var(--r-sm)}
 .btn.big{padding:14px 20px;font-size:16px;border-radius:14px}
 .btn.wide{width:100%}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 .icon-btn{
   width:38px;height:38px;padding:0;border-radius:10px;display:inline-flex;align-items:center;
-  justify-content:center;background:var(--surface);border:1px solid var(--border-soft);color:var(--text-2);cursor:pointer;
+  justify-content:center;background:rgba(13,26,21,.45);border:1px solid rgba(243,241,234,.12);
+  color:rgba(243,241,234,.72);cursor:pointer;
 }
-.icon-btn:hover{color:var(--text);background:var(--surface-2)}
+.icon-btn:hover{color:var(--cream);background:rgba(13,26,21,.7)}
 .card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--r-lg);padding:18px}
 .card+.card{margin-top:14px}
 .label{font-size:11px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:700}
@@ -117,17 +140,14 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
   display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
   padding:5px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-soft);color:var(--text-2);
 }
-.chip.warn{background:#2a2010;border-color:#4a3a15;color:var(--accent-2)}
-.chip.bad{background:#2a1416;border-color:#4a2429;color:#ff9b9e}
-.chip.ok{background:#12251d;border-color:#1e4433;color:var(--green)}
+.chip.warn{background:#2e2410;border-color:#54401a;color:var(--accent-2)}
+.chip.bad{background:#2e1719;border-color:#5a2b2f;color:#ff9b9e}
+.chip.ok{background:#12291f;border-color:#1f4a37;color:var(--ok)}
 .chip.btn-like{cursor:pointer}
 
 /* ---------- season header ---------- */
-.season-head{
-  display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;
-  padding:22px 0 16px;
-}
-.season-head h1{font-size:clamp(24px,4.4vw,34px);font-weight:800;letter-spacing:-.02em}
+.season-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;padding:22px 0 16px}
+.season-head h1{font-size:clamp(24px,4.4vw,34px);font-weight:800;letter-spacing:-.02em;text-wrap:balance}
 .season-meta{font-size:13px;color:var(--muted);margin-top:4px}
 .season-head .spacer{margin-left:auto}
 
@@ -140,17 +160,15 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 }
 .pod-block{
   border-radius:14px 14px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:12px 8px;border:1px solid rgba(255,255,255,.1);position:relative;
+  padding:12px 8px;border:1px solid rgba(243,241,234,.14);position:relative;
 }
-.pod-rank{font-size:26px;font-weight:900;line-height:1;color:#1a1408}
-.pod-pts{font-size:12px;font-weight:800;color:rgba(26,20,8,.72);letter-spacing:.02em}
-.pod-medals{font-size:11px;color:rgba(26,20,8,.6);font-weight:700}
-.p1 .pod-block{height:132px;background:linear-gradient(180deg,#ffd971,var(--gold))}
-.p2 .pod-block{height:106px;background:linear-gradient(180deg,#e6edf6,var(--silver))}
-.p3 .pod-block{height:84px;background:linear-gradient(180deg,#e0a468,var(--bronze))}
-.p4 .pod-block{height:66px;background:linear-gradient(180deg,#98a2b6,var(--fourth))}
-.p4 .pod-rank,.p4 .pod-pts,.p4 .pod-medals{color:#0f1319}
-.p4 .pod-pts{color:rgba(15,19,25,.72)}
+.pod-rank{font-size:26px;font-weight:900;line-height:1;color:var(--on-medal);font-variant-numeric:tabular-nums}
+.pod-pts{font-size:12px;font-weight:800;color:var(--on-medal);opacity:.88;letter-spacing:.02em}
+.pod-medals{font-size:11px;color:var(--on-medal);opacity:.8;font-weight:700}
+.p1 .pod-block{height:132px;background:linear-gradient(180deg,#f2cd6f,var(--gold))}
+.p2 .pod-block{height:106px;background:linear-gradient(180deg,#e3ebe5,var(--silver))}
+.p3 .pod-block{height:84px;background:linear-gradient(180deg,#e0ae7f,var(--bronze))}
+.p4 .pod-block{height:66px;background:linear-gradient(180deg,#aabfb4,var(--fourth))}
 .pod.ghost .pod-block{background:var(--surface-2);border-style:dashed;border-color:var(--border)}
 .pod.ghost .pod-rank{color:var(--muted)}
 .pod.ghost .pod-name{color:var(--muted);font-weight:600}
@@ -171,7 +189,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 .tbl tr.top4 .rank{color:var(--fourth)}
 .tbl .team{font-weight:650}
 .tbl .pts{font-weight:800;font-size:16px;color:var(--accent-2)}
-.tbl .cut td{border-bottom:2px dashed #3a4354}
+.tbl .cut td{border-bottom:2px dashed var(--border)}
 .medals{white-space:nowrap;letter-spacing:1px}
 
 /* ---------- bracket ---------- */
@@ -183,9 +201,9 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 }
 .round-body{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px}
 .match{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--r);overflow:hidden}
-.match.ready{border-color:var(--accent);box-shadow:0 0 0 3px rgba(245,165,36,.12)}
-.match.bronze-m{border-color:#4a3620}
-.match.bronze-m.ready{border-color:var(--bronze);box-shadow:0 0 0 3px rgba(208,140,74,.14)}
+.match.ready{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,160,60,.13)}
+.match.bronze-m{border-color:#553a22}
+.match.bronze-m.ready{border-color:var(--bronze);box-shadow:0 0 0 3px rgba(210,155,104,.16)}
 .match-cap{
   font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
   padding:6px 10px 0;display:flex;justify-content:space-between;
@@ -201,8 +219,8 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 .slot .seed{font-size:10px;color:var(--muted);width:16px;flex:0 0 16px;font-variant-numeric:tabular-nums;font-weight:700}
 .slot .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slot .mark{font-size:12px;opacity:.9}
-.slot.win{background:linear-gradient(90deg,rgba(245,165,36,.22),rgba(245,165,36,.06));color:#ffd77a}
-.slot.win .seed{color:rgba(255,215,122,.7)}
+.slot.win{background:linear-gradient(90deg,rgba(224,160,60,.24),rgba(224,160,60,.06));color:var(--accent-2)}
+.slot.win .seed{color:rgba(242,186,92,.7)}
 .slot.lose{color:var(--muted)}
 .slot.lose .nm{text-decoration:line-through}
 .slot.tbd{color:var(--muted);font-weight:500;font-style:italic}
@@ -216,10 +234,10 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 
 /* winner banner */
 .winner-wrap{
-  border:1px solid #4a3a15;border-radius:var(--r-lg);padding:20px;
-  background:linear-gradient(180deg,rgba(245,165,36,.16),rgba(245,165,36,.03));
+  border:1px solid #54401a;border-radius:var(--r-lg);padding:20px;
+  background:linear-gradient(180deg,rgba(224,160,60,.17),rgba(224,160,60,.03));
 }
-.winner-wrap h2{font-size:20px;margin-bottom:4px}
+.winner-wrap h2{font-size:20px;margin-bottom:4px;text-wrap:balance}
 
 /* history */
 .hist{display:flex;flex-direction:column;gap:10px}
@@ -239,11 +257,11 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
   display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;
   background:var(--bg-2);border:1px solid var(--border);font-size:14px;font-weight:600;
 }
-.team-pick:hover{border-color:#3a4354}
-.team-pick.on{background:var(--accent-dim);border-color:var(--accent);color:#ffd77a}
+.team-pick:hover{border-color:#3b6553}
+.team-pick.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent-2)}
 .team-pick .box{
   width:18px;height:18px;flex:0 0 18px;border-radius:5px;border:1.5px solid var(--muted);
-  display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#231803;
+  display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--on-accent);
 }
 .team-pick.on .box{background:var(--accent);border-color:var(--accent)}
 .team-pick .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -259,7 +277,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 
 /* ---------- modal ---------- */
 .overlay{
-  position:fixed;inset:0;background:rgba(6,7,10,.72);backdrop-filter:blur(3px);
+  position:fixed;inset:0;background:rgba(6,13,10,.76);backdrop-filter:blur(3px);
   z-index:80;display:flex;align-items:flex-end;justify-content:center;padding:0;
 }
 @media(min-width:640px){.overlay{align-items:center;padding:24px}}
@@ -270,6 +288,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 @media(min-width:640px){.modal{border-radius:18px}}
 .modal-head{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border-soft)}
 .modal-head h3{font-size:17px;font-weight:750;flex:1}
+.modal-head .icon-btn{background:var(--surface-2);border-color:var(--border);color:var(--text-2)}
 .modal-body{padding:18px;overflow:auto}
 .modal-foot{padding:14px 18px;border-top:1px solid var(--border-soft);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 .modal-foot .spacer{margin-right:auto}
@@ -284,9 +303,12 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
   padding:11px 16px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:var(--shadow);
   animation:pop .18s ease both;max-width:90vw;
 }
-.toast.ok{border-color:#1e4433}
-.toast.err{border-color:#4a2429;color:#ff9b9e}
+.toast.ok{border-color:#1f4a37}
+.toast.err{border-color:#5a2b2f;color:#ff9b9e}
 @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
 
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .row>*{flex:1;min-width:150px}
@@ -302,6 +324,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
   .pod-rank{font-size:21px}
   .hide-sm{display:none}
   .season-head{padding:16px 0 12px}
+  .brand-name{font-size:15px}
 }
 
 @media print{
@@ -312,7 +335,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
   .tbl .pts{color:#000}
   .pod-block{border:1px solid #999}
   .muted,.label,.tbl th{color:#555}
-  h1,h2,h3{color:#000}
+  h1,h2,h3{color:var(--brand)}   /* en printet stilling til barvæggen i husets grønne */
 }
 </style>
 </head>
@@ -322,13 +345,13 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
   <div class="wrap topbar-in">
     <div class="brand">
       <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="6.6" cy="17.4" r="3.5" fill="#f5a524"/>
-        <circle cx="17.4" cy="17.4" r="3.5" fill="#f5a524"/>
-        <circle cx="12" cy="8.6" r="3.5" fill="#ffc24a"/>
-        <circle cx="19.4" cy="5.2" r="2.3" fill="#f2f2ef"/>
+        <circle cx="6.6" cy="17.4" r="3.5" fill="#f3f1ea"/>
+        <circle cx="17.4" cy="17.4" r="3.5" fill="#f3f1ea"/>
+        <circle cx="12" cy="8.6" r="3.5" fill="#f3f1ea"/>
+        <circle cx="19.6" cy="5" r="2.4" fill="#e0a03c"/>
       </svg>
       <div class="brand-txt">
-        <div class="brand-name">Leanowski</div>
+        <div class="brand-name">Léanowski</div>
         <div class="brand-sub">Beer Pong Liga</div>
       </div>
     </div>
@@ -555,6 +578,59 @@ function computeStandings(season){
   return list;
 }
 
+/* ---------------- holdnavne ----------------
+   Et hold genkendes på navnet, så pointene lander på det rigtige hold hen
+   over sæsonen. Store bogstaver, mellemrum og tegnsætning ignoreres, og en
+   tastefejl fanges før den når at splitte pointene på to navne. */
+
+/** Normaliseret nøgle: "Bajer Boys", "bajerboys" og "Bajer-Boys" er samme hold. */
+function normName(s){
+  return String(s).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/** Levenshtein-afstand — hvor mange rettelser skal der til for at nå fra a til b. */
+function editDistance(a, b){
+  if(a === b) return 0;
+  if(!a.length) return b.length;
+  if(!b.length) return a.length;
+  var prev = [], cur = [], i, j;
+  for(j=0; j<=b.length; j++) prev[j] = j;
+  for(i=1; i<=a.length; i++){
+    cur[0] = i;
+    for(j=1; j<=b.length; j++){
+      var cost = a.charAt(i-1) === b.charAt(j-1) ? 0 : 1;
+      cur[j] = Math.min(cur[j-1] + 1, prev[j] + 1, prev[j-1] + cost);
+    }
+    prev = cur.slice();
+  }
+  return prev[b.length];
+}
+
+/** "hold1" og "hold2" er bevidst nummererede hold, ikke en tastefejl. */
+function numberedApart(a, b){
+  var ra = /^(.*?)(\d+)$/.exec(a), rb = /^(.*?)(\d+)$/.exec(b);
+  return !!(ra && rb && ra[1] === rb[1] && ra[2] !== rb[2]);
+}
+
+/**
+ * Findes der et eksisterende navn så tæt på at det nok var en tastefejl?
+ * Returnerer navnet, eller null når der ikke er et oplagt bud.
+ * Korte navne kræver et præcist match — ellers ville "Skum" og "Skam" smelte sammen.
+ */
+function nearestName(name, existing){
+  var n = normName(name);
+  if(n.length < 4) return null;
+  var maxD = n.length >= 8 ? 2 : 1;
+  var best = null, bestD = 99;
+  for(var i=0; i<existing.length; i++){
+    var e = normName(existing[i]);
+    if(numberedApart(n, e)) continue;
+    var d = editDistance(n, e);
+    if(d < bestD){ bestD = d; best = existing[i]; }
+  }
+  return (bestD > 0 && bestD <= maxD) ? best : null;
+}
+
 /* =======================================================================
    LOGIC-END
    ======================================================================= */
@@ -714,6 +790,58 @@ function teamName(id){
   var t = teamById(id);
   return t ? t.name : '—';
 }
+function findTeamByName(v){
+  var key = normName(v), ts = season().teams;
+  for(var i=0;i<ts.length;i++) if(normName(ts[i].name) === key) return ts[i];
+  return null;
+}
+/** Tag et hold med i den turnering der er ved at blive sat op. */
+function usePickedTeam(id){
+  if(draft.picked.indexOf(id) < 0){
+    if(draft.picked.length >= MAX_TEAMS) toast('Der er plads til ' + MAX_TEAMS + ' hold', 'err');
+    else draft.picked.push(id);
+  }
+  renderNewTournament(true);
+}
+function createAndPick(name){
+  pushUndo();
+  var id = uid();
+  season().teams.push({ id:id, name:name, createdAt:new Date().toISOString() });
+  save();
+  usePickedTeam(id);
+}
+/**
+ * Navnet ligner et hold der findes i forvejen. Spørg hellere end at gætte —
+ * vælges der forkert, bliver pointene delt på to navne resten af sæsonen.
+ */
+function askDuplicate(typed, simName){
+  var sim = findTeamByName(simName);
+  if(!sim){ createAndPick(typed); return; }
+  openModal(
+    '<div class="modal-head"><h3>Mente du &quot;' + esc(sim.name) + '&quot;?</h3></div>' +
+    '<div class="modal-body">' +
+      '<p style="margin-top:0">Du skrev <b>' + esc(typed) + '</b>, og sæsonen har allerede holdet <b>' + esc(sim.name) + '</b>.</p>' +
+      '<p class="hint warn">Opretter du det som et nyt hold, bliver pointene delt mellem de to navne resten af sæsonen.</p>' +
+    '</div>' +
+    '<div class="modal-foot">' +
+      '<button class="btn ghost" data-c="cancel">Fortryd</button>' +
+      '<button class="btn ghost" data-c="new">Opret som nyt hold</button>' +
+      '<button class="btn primary" data-c="same">Brug &quot;' + esc(sim.name) + '&quot;</button>' +
+    '</div>',
+    { onClose: function(){ renderNewTournament(false); } }
+  );
+  currentModal().addEventListener('click', function(e){
+    var c = e.target.closest('[data-c]');
+    if(!c) return;
+    var a = c.getAttribute('data-c');
+    modalCloser = null;
+    closeModal();
+    if(a === 'same') usePickedTeam(sim.id);
+    else if(a === 'new') createAndPick(typed);
+    else renderNewTournament(false);
+  });
+}
+
 function activeTournament(){
   var s = season();
   if(!s.activeTournamentId) return null;
@@ -892,7 +1020,7 @@ function viewSeason(){
   if(act){
     var ab = buildBracket(act);
     var ready = readyMatches(ab).length;
-    h += '<div class="card no-print" style="border-color:#4a3a15;background:linear-gradient(180deg,rgba(245,165,36,.10),transparent)">' +
+    h += '<div class="card no-print" style="border-color:#54401a;background:linear-gradient(180deg,rgba(224,160,60,.11),transparent)">' +
       '<div class="h-row" style="margin-bottom:8px">' +
         '<h2>🎯 ' + esc(act.name) + ' er i gang</h2>' +
         '<div class="spacer"></div>' +
@@ -1311,18 +1439,20 @@ function wireNewTournament(){
   function addTeam(){
     var v = newEl.value.trim();
     if(!v) return;
-    var exists = season().teams.filter(function(t){ return t.name.toLowerCase() === v.toLowerCase(); })[0];
-    var id;
-    if(exists){ id = exists.id; toast('"' + v + '" fandtes allerede'); }
-    else {
-      pushUndo();
-      id = uid();
-      season().teams.push({ id:id, name:v, createdAt:new Date().toISOString() });
-      save();
-    }
-    if(draft.picked.indexOf(id) < 0 && draft.picked.length < MAX_TEAMS) draft.picked.push(id);
     draft.name = nameEl.value; draft.date = dateEl.value;
-    renderNewTournament(true);   // klar til næste holdnavn
+
+    // Samme navn som et eksisterende hold: brug holdet, opret ikke en dublet.
+    var exact = findTeamByName(v);
+    if(exact){
+      toast('"' + exact.name + '" er allerede med i sæsonen');
+      usePickedTeam(exact.id);
+      return;
+    }
+    // Tæt på et eksisterende navn: spørg, før pointene bliver splittet.
+    var near = nearestName(v, season().teams.map(function(t){ return t.name; }));
+    if(near){ askDuplicate(v, near); return; }
+
+    createAndPick(v);
   }
   newEl.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addTeam(); } });
 

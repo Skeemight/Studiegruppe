@@ -17,6 +17,17 @@ på en iPad, så åbner den som en app.
 Vælg ét sted og bliv der. Hver enhed, browser og udgave har sin egen kopi af
 dataene — skal sæsonen flyttes, går det gennem backup-filen.
 
+## Hold og navne
+
+Hold gemmes i sæsonen, så de bare skal sættes flueben ved næste gang. Skriver I
+navnet ind igen, genkendes det uanset store bogstaver, mellemrum og tegnsætning
+— "Bajer Boys", "bajer boys" og "Bajer-Boys" er samme hold.
+
+Ligner et navn et hold der findes i forvejen, spørger appen først ("Mente du
+Bajer Boys?"), så en tastefejl ikke deler pointene mellem to næsten ens navne
+resten af sæsonen. Bevidst nummererede hold som "Hold 1" og "Hold 2" udløser
+ikke spørgsmålet.
+
 ## Formatet
 
 - Op til 16 hold, ren cup, 1 mod 1 hele vejen til finalen.

@@ -23,12 +23,14 @@ const code = src.slice(src.indexOf('*/', startMarker) + 2, src.lastIndexOf('/*',
 const logic = new Function(
   code +
   '; return { POINTS, MAX_TEAMS, bracketSizeFor, seedOrder, buildSlots, buildBracket,' +
-  ' allMatches, readyMatches, computeStandings, roundName, loserOf, placeOf };'
+  ' allMatches, readyMatches, computeStandings, roundName, loserOf, placeOf,' +
+  ' normName, editDistance, nearestName };'
 )();
 
 const {
   bracketSizeFor, seedOrder, buildSlots, buildBracket,
   readyMatches, computeStandings, roundName,
+  normName, editDistance, nearestName,
 } = logic;
 
 /* ---------- lille test-runner ---------- */
@@ -288,6 +290,54 @@ test('kampstatistik tælles uden oversiddere', () => {
   eq(row['Hold 1'], '1-0');
   eq(row['Hold 2'], '1-1');
   eq(row['Hold 3'], '0-1');
+});
+
+/* ---------- holdnavne ---------- */
+test('samme navn genkendes uanset store bogstaver og tegnsætning', () => {
+  const same = ['Bajer Boys', 'bajer boys', 'BAJER BOYS', 'Bajer-Boys', ' Bajer  Boys '];
+  const keys = new Set(same.map(normName));
+  eq(keys.size, 1, 'alle skrivemåder skal give samme nøgle');
+  eq(normName('Tømmermænd'), normName('tømmermænd'), 'æøå skal bevares og matche');
+  ok(normName('Skum') !== normName('Skvæt'), 'forskellige navne må ikke smelte sammen');
+});
+
+test('editDistance måler antal rettelser', () => {
+  eq(editDistance('skum', 'skum'), 0);
+  eq(editDistance('skum', 'skam'), 1);
+  eq(editDistance('bajerboys', 'bajerboyz'), 1);
+  eq(editDistance('', 'abc'), 3);
+});
+
+test('tastefejl i et langt navn fanges', () => {
+  const existing = ['Bajer Boys', 'Tømmermænd', 'Kælderholdet'];
+  eq(nearestName('Bajer Boyz', existing), 'Bajer Boys', 'ét forkert bogstav skal fanges');
+  eq(nearestName('Tømmermnd', existing), 'Tømmermænd', 'et glemt bogstav skal fanges');
+});
+
+test('et rigtigt nyt hold udløser ikke et spørgsmål', () => {
+  const existing = ['Bajer Boys', 'Tømmermænd', 'Kælderholdet'];
+  eq(nearestName('Pong Stars', existing), null);
+  eq(nearestName('Skum', existing), null);
+  eq(nearestName('Røde Kort', existing), null);
+});
+
+test('korte navne kræver et præcist match', () => {
+  // "Skum" og "Skam" er kun ét bogstav fra hinanden, men begge er plausible holdnavn.
+  eq(nearestName('Skam', ['Skum']), 'Skum', 'fire tegn: én rettelse er stadig mistænkelig');
+  eq(nearestName('Ab', ['Ac']), null, 'meget korte navne vurderes ikke');
+  eq(nearestName('Team', ['Teak']), 'Teak');
+  eq(nearestName('Alfa', ['Beta', 'Gamma']), null);
+});
+
+test('nummererede hold forveksles ikke med hinanden', () => {
+  eq(nearestName('Hold 2', ['Hold 1']), null, 'Hold 1 og Hold 2 er bevidst forskellige');
+  eq(nearestName('Bord 3', ['Bord 1', 'Bord 2']), null);
+  eq(nearestName('Hold B', ['Hold A']), 'Hold A', 'bogstaver er ikke numre — her spørges der');
+});
+
+test('et navn der allerede findes, matcher sig selv med afstand 0 (ingen prompt)', () => {
+  // Et præcist match håndteres af findTeamByName, ikke af nearestName.
+  eq(nearestName('Bajer Boys', ['Bajer Boys']), null);
 });
 
 /* ---------- resultat ---------- */
