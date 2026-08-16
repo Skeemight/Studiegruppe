@@ -83,6 +83,38 @@ hold sættes automatisk op med nr. 1 mod nr. 4 og nr. 2 mod nr. 3. Bagefter
 arkiverer **Afslut sæson** stillingen under Historik og starter en ny sæson med
 blanke point (holdene kan følge med over).
 
+## Sky-synk (valgfri)
+
+Uden opsætning ligger sæsonen kun på den enhed I bruger. Slår I sky-synk til,
+deler alle enheder den samme sæson — og så er backup-filen kun et ekstra sikkerhedsnet.
+
+Sådan sættes det op (kan gøres helt fra en telefon):
+
+1. Opret et gratis projekt på [supabase.com](https://supabase.com) — vælg region
+   Frankfurt eller Stockholm.
+2. Åbn **SQL Editor** → **New query**, indsæt hele `supabase/leanowski-sync.sql`
+   fra dette repo, og tryk **Run**.
+3. Gå til **Project Settings → API** og kopiér **Project URL** og **anon public**-nøglen.
+4. Åbn trackeren → 💾 → **☁︎ Sky-synk mellem enheder**. Indsæt de to værdier,
+   tryk **Lav en ny liga-kode**, og tryk **Gem og forbind**.
+5. På de andre enheder: samme URL og nøgle, men skriv **den samme liga-kode**.
+   De henter så sæsonen ned.
+
+**Liga-koden er adgangen.** Den der har den, kan læse og rette sæsonen. Del den
+kun med dem der skal kunne det. Nøglerne gemmes kun i browseren og følger ikke
+med i en backup-fil.
+
+**Hvis to enheder retter samtidig** overskriver appen ikke af sig selv. Den
+melder konflikt og lader jer vælge hvilken version der skal gælde.
+
+**Uden net** virker appen videre og gemmer lokalt. Den sender når forbindelsen
+er tilbage — og melder konflikt hvis nogen nåede at rette imens.
+
+**Vigtigt om gratis-niveauet:** Supabase pauser projekter efter ca. en uges
+inaktivitet, og et pauset projekt skal startes manuelt igen. Derfor ligger der
+en GitHub Action i `.github/workflows/leanowski-keepalive.yml` der holder det
+vågent. Den skal have to secrets for at virke — se filen.
+
 ## Backup — vigtigt
 
 Alt gemmes automatisk i browseren på den enhed I bruger, også uden internet.

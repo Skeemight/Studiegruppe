@@ -379,6 +379,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
       <button class="tab" data-tab="history">Historik</button>
     </div>
     <div class="top-actions">
+      <span id="syncChip" hidden></span>
       <button class="icon-btn" id="undoBtn" title="Fortryd sidste handling" hidden>↺</button>
       <button class="icon-btn" id="dataBtn" title="Backup &amp; data">💾</button>
       <button class="icon-btn" id="helpBtn" title="Sådan virker det">?</button>
@@ -818,6 +819,7 @@ function save(){
   }catch(e){
     toast('Kunne ikke gemme lokalt (' + e.name + ') — tag en backup!', 'err');
   }
+  syncTouch();   // gør intet hvis sky-synk ikke er sat op
 }
 function load(){
   var raw = null;
@@ -948,6 +950,204 @@ function seedNoOf(t, teamId){
   return order[i];
 }
 
+/* =======================================================================
+   SKY-SYNK (valgfri)
+
+   Uden opsætning rører intet herinde appen: den kører præcis som før, kun
+   på denne enhed. Er der indtastet nøgler, deles sæsonen mellem alle
+   enheder der bruger samme liga-kode.
+
+   Hele sæsonen sendes som én blok — dataene er små, og det fjerner al
+   fletning. For at to enheder ikke overskriver hinanden har hver gemning
+   et revisionsnummer: skriver man oven på en revision der er overhalet,
+   afviser serveren det, og brugeren bliver spurgt i stedet.
+   ======================================================================= */
+var SYNC_KEY = 'leanowski.sync.v1';
+var sync = {
+  cfg: null,          // {url, key, league}
+  rev: 0,             // sidste revision vi kender fra serveren
+  status: 'off',      // off | ok | offline | conflict | error
+  detail: '',
+  pushTimer: null,
+  pullTimer: null,
+  busy: false
+};
+
+function syncOn(){ return !!(sync.cfg && sync.cfg.url && sync.cfg.key && sync.cfg.league); }
+function loadSyncCfg(){
+  try{
+    var raw = localStorage.getItem(SYNC_KEY);
+    if(!raw) return;
+    var o = JSON.parse(raw);
+    sync.cfg = o.cfg || null;
+    sync.rev = o.rev || 0;
+  }catch(e){}
+}
+function saveSyncCfg(){
+  try{
+    localStorage.setItem(SYNC_KEY, JSON.stringify({ cfg: sync.cfg, rev: sync.rev }));
+  }catch(e){}
+}
+function newLeagueCode(){
+  var s = '';
+  for(var i=0;i<4;i++) s += Math.random().toString(36).slice(2,8);
+  return s.slice(0, 20);
+}
+
+/** Kald en af de to database-funktioner. Kaster ved netværks- eller serverfejl. */
+function syncCall(fn, body, cfg){
+  cfg = cfg || sync.cfg;
+  var base = String(cfg.url).replace(/\/+$/, '');
+  return fetch(base + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: {
+      'apikey': cfg.key,
+      'Authorization': 'Bearer ' + cfg.key,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  }).then(function(res){
+    return res.text().then(function(txt){
+      if(!res.ok){
+        var msg = txt;
+        try{ msg = (JSON.parse(txt).message || txt); }catch(e){}
+        var err = new Error(msg || ('HTTP ' + res.status));
+        err.httpStatus = res.status;
+        throw err;
+      }
+      if(!txt) return null;
+      try{ return JSON.parse(txt); }catch(e){ return null; }
+    });
+  });
+}
+
+function setSyncStatus(s, detail){
+  sync.status = s;
+  sync.detail = detail || '';
+  var el = $('#syncChip');
+  if(el) el.outerHTML = syncChipHTML();
+}
+function syncChipHTML(){
+  if(!syncOn()) return '<span id="syncChip" hidden></span>';
+  var map = {
+    ok:       ['ok',   '☁︎ Synkroniseret'],
+    offline:  ['warn', '☁︎ Offline — gemt lokalt'],
+    conflict: ['bad',  '⚠️ Konflikt — tryk her'],
+    error:    ['bad',  '⚠️ Synk-fejl — tryk her'],
+    off:      ['',     '☁︎ Synk']
+  };
+  var m = map[sync.status] || map.off;
+  return '<span id="syncChip" class="chip ' + m[0] + ' btn-like" data-act="sync-panel" title="' +
+    esc(sync.detail) + '">' + m[1] + '</span>';
+}
+
+/** Hent fra serveren. Findes ligaen ikke endnu, oprettes den med det vi har. */
+function syncPull(opts){
+  opts = opts || {};
+  if(!syncOn() || sync.busy) return Promise.resolve();
+  sync.busy = true;
+  return syncCall('league_get', { p_id: sync.cfg.league })
+    .then(function(rows){
+      var row = rows && rows.length ? rows[0] : null;
+      if(!row){
+        sync.busy = false;
+        return syncPush({ create: true });      // første gang: læg vores data op
+      }
+      if(row.rev === sync.rev){                 // intet nyt
+        setSyncStatus('ok');
+        sync.busy = false;
+        return;
+      }
+      var incoming = normalize(row.data);
+      if(!incoming){
+        setSyncStatus('error', 'Data fra serveren kunne ikke læses');
+        sync.busy = false;
+        return;
+      }
+      sync.busy = false;
+      if(opts.force || sync.rev === 0 || !hasLocalChanges()){
+        adoptRemote(incoming, row.rev);
+      } else {
+        // Vi har lokale ændringer OG serveren er rykket videre.
+        setSyncStatus('conflict', 'Sæsonen er ændret på en anden enhed');
+        pendingRemote = { state: incoming, rev: row.rev };
+        render();
+      }
+    })
+    .catch(function(err){
+      sync.busy = false;
+      syncFailed(err);
+    });
+}
+var pendingRemote = null;
+var localDirty = false;
+function hasLocalChanges(){ return localDirty; }
+function adoptRemote(incoming, rev){
+  state = incoming;
+  sync.rev = rev;
+  pendingRemote = null;
+  saveSyncCfg();
+  save();
+  // save() markerer normalt at der er noget at sende — men vi har lige
+  // hentet, så der er intet nyt at skubbe tilbage.
+  if(sync.pushTimer) clearTimeout(sync.pushTimer);
+  localDirty = false;
+  setSyncStatus('ok');
+  render();
+}
+
+function syncPush(opts){
+  opts = opts || {};
+  if(!syncOn() || sync.busy) return Promise.resolve();
+  sync.busy = true;
+  var sendRev = opts.create ? 0 : sync.rev;
+  return syncCall('league_put', {
+    p_id: sync.cfg.league,
+    p_data: state,
+    p_rev: sendRev
+  }).then(function(newRev){
+    sync.busy = false;
+    if(newRev === null || newRev === undefined){
+      if(opts.create){
+        // Koden var optaget — hent i stedet det der ligger.
+        return syncPull({ force: true });
+      }
+      setSyncStatus('conflict', 'En anden enhed har gemt i mellemtiden');
+      return syncPull();
+    }
+    sync.rev = newRev;
+    localDirty = false;
+    saveSyncCfg();
+    setSyncStatus('ok');
+  }).catch(function(err){
+    sync.busy = false;
+    syncFailed(err);
+  });
+}
+function syncFailed(err){
+  var msg = (err && err.message) || 'ukendt fejl';
+  if(/failed to fetch|networkerror|load failed/i.test(msg)) setSyncStatus('offline', msg);
+  else setSyncStatus('error', msg);
+}
+
+/** Kaldes efter hver ændring. Skubber samlet, så en hurtig klik-serie giver ét kald. */
+function syncTouch(){
+  if(!syncOn()) return;
+  localDirty = true;
+  if(sync.pushTimer) clearTimeout(sync.pushTimer);
+  sync.pushTimer = setTimeout(function(){ syncPush(); }, 1500);
+}
+function startSync(){
+  if(!syncOn()) return;
+  syncPull();
+  if(sync.pullTimer) clearInterval(sync.pullTimer);
+  sync.pullTimer = setInterval(function(){
+    if(!localDirty) syncPull();
+  }, 45000);
+}
+window.addEventListener('focus', function(){ if(syncOn() && !localDirty) syncPull(); });
+window.addEventListener('online', function(){ if(syncOn()) syncPull(); });
+
 /* ---------------- toast ---------------- */
 function toast(msg, kind){
   var el = document.createElement('div');
@@ -1048,6 +1248,8 @@ function render(){
     tabs[i].classList.toggle('on', tabs[i].dataset.tab === view);
   }
   $('#undoBtn').hidden = undoStack.length === 0;
+  var chip = $('#syncChip');
+  if(chip) chip.outerHTML = syncChipHTML();
 
   // Behold scroll-positionen, så man ikke ryger til toppen for hvert klik i bracketet.
   var scrollY = window.scrollY;
@@ -2065,6 +2267,9 @@ function dataModal(){
       '<input type="file" id="fileIn" accept=".json,application/json,text/json,text/plain" hidden>' +
 
       '<div class="divider"></div>' +
+      '<button class="btn wide" data-c="sync">☁︎ Sky-synk mellem enheder' +
+        (syncOn() ? ' <span class="chip ok" style="margin-left:6px">til</span>' : '') + '</button>' +
+      '<div class="divider"></div>' +
       '<button class="btn danger wide" data-c="reset">Slet alt og start forfra</button>' +
     '</div>' +
     '<div class="modal-foot"><button class="btn ghost" data-c="close">Luk</button></div>'
@@ -2088,6 +2293,7 @@ function dataModal(){
     else if(a === 'import') fileIn.click();
     else if(a === 'copy') copyData();
     else if(a === 'paste') pasteData();
+    else if(a === 'sync') syncPanel();
     else if(a === 'reset') resetAll();
   });
 }
@@ -2208,6 +2414,164 @@ function resetAll(){
     view = 'season';
     commit();
     toast('Alt nulstillet');
+  });
+}
+
+/* --- sky-synk: opsætning og konflikter --- */
+function syncPanel(){
+  if(pendingRemote){ conflictDialog(); return; }
+  var c = sync.cfg || { url:'', key:'', league:'' };
+  var statusLine = syncOn()
+    ? ({ ok:'Alt er synkroniseret.', offline:'Ingen forbindelse — ændringer gemmes lokalt og sendes når nettet er tilbage.',
+         error:'Der er en fejl: ' + esc(sync.detail), conflict:'Sæsonen er ændret et andet sted.',
+         off:'' }[sync.status] || '')
+    : 'Sky-synk er slået fra. Sæsonen ligger kun på denne enhed.';
+
+  openModal(
+    '<div class="modal-head"><h3>Sky-synk</h3><button class="icon-btn" data-c="close">✕</button></div>' +
+    '<div class="modal-body">' +
+      '<p class="dim" style="margin-top:0">' + statusLine + '</p>' +
+      '<p class="dim">Med sky-synk deler alle enheder den samme sæson. Uden den har hver ' +
+      'enhed sin egen kopi. Appen virker stadig uden net — den sender når forbindelsen er tilbage.</p>' +
+
+      '<div class="divider"></div>' +
+      '<div class="field"><span class="label">Projekt-URL fra Supabase</span>' +
+        '<input type="text" id="syUrl" placeholder="https://xxxx.supabase.co" value="' + esc(c.url) + '"></div>' +
+      '<div class="field"><span class="label">Anon public key</span>' +
+        '<input type="text" id="syKey" placeholder="eyJhbGciOi..." value="' + esc(c.key) + '"></div>' +
+      '<div class="field"><span class="label">Liga-kode</span>' +
+        '<input type="text" id="syLeague" placeholder="deles mellem jeres enheder" value="' + esc(c.league) + '">' +
+        '<p class="hint">Den der har koden kan læse og rette sæsonen. Del den kun med dem der skal kunne det. ' +
+        'Lav en ny på den første enhed, og skriv den samme ind på de øvrige.</p>' +
+        '<button class="btn sm ghost" data-c="gen" style="margin-top:6px">Lav en ny liga-kode</button>' +
+      '</div>' +
+
+      '<div class="stack-8" style="margin-top:16px">' +
+        '<button class="btn primary wide" data-c="save">Gem og forbind</button>' +
+        (syncOn() ? '<button class="btn wide" data-c="pull">Hent fra skyen nu</button>' : '') +
+        (syncOn() ? '<button class="btn ghost wide" data-c="offlink">Slå sky-synk fra på denne enhed</button>' : '') +
+      '</div>' +
+      '<p class="hint">Nøglerne gemmes kun i denne browser og følger ikke med i en backup-fil.</p>' +
+    '</div>' +
+    '<div class="modal-foot"><button class="btn ghost" data-c="close">Luk</button></div>',
+    { focus: c.url ? null : '#syUrl' }
+  );
+
+  var root = currentModal();
+  root.addEventListener('click', function(e){
+    var b = e.target.closest('[data-c]');
+    if(!b) return;
+    var a = b.getAttribute('data-c');
+    if(a === 'close'){ closeModal(); return; }
+    if(a === 'gen'){ $('#syLeague', root).value = newLeagueCode(); return; }
+    if(a === 'pull'){ closeModal(); syncPull({ force:false }).then(function(){ toast('Hentet fra skyen'); }); return; }
+    if(a === 'offlink'){
+      confirmDialog({
+        title:'Slå sky-synk fra?',
+        body:'<p>Denne enhed holder op med at dele sæsonen. Data bliver liggende både her og i skyen.</p>',
+        okText:'Slå fra', danger:true
+      }).then(function(ok){
+        if(!ok) return;
+        sync.cfg = null; sync.rev = 0;
+        if(sync.pullTimer) clearInterval(sync.pullTimer);
+        saveSyncCfg();
+        setSyncStatus('off');
+        closeModal(); render();
+        toast('Sky-synk slået fra');
+      });
+      return;
+    }
+    if(a === 'save'){
+      var cfg = {
+        url: $('#syUrl', root).value.trim(),
+        key: $('#syKey', root).value.trim(),
+        league: $('#syLeague', root).value.trim()
+      };
+      if(!cfg.url || !cfg.key || !cfg.league){ toast('Udfyld alle tre felter', 'err'); return; }
+      if(cfg.league.length < 12){ toast('Liga-koden skal være mindst 12 tegn', 'err'); return; }
+      b.disabled = true; b.textContent = 'Forbinder…';
+      syncCall('league_get', { p_id: cfg.league }, cfg).then(function(rows){
+        var existing = rows && rows.length ? rows[0] : null;
+        var changedLeague = !sync.cfg || sync.cfg.league !== cfg.league;
+        sync.cfg = cfg;
+        if(changedLeague) sync.rev = 0;
+        saveSyncCfg();
+        closeModal();
+        if(existing && normalize(existing.data)){
+          confirmDialog({
+            title:'Der ligger allerede en sæson',
+            body:'<p>Liga-koden findes i forvejen med <b>' + esc(normalize(existing.data).season.name) + '</b>.</p>' +
+              '<p class="hint warn">Henter du den, erstattes sæsonen på denne enhed.</p>',
+            okText:'Hent den fra skyen', cancelText:'Behold min og send den op'
+          }).then(function(take){
+            if(take) adoptRemote(normalize(existing.data), existing.rev);
+            else { sync.rev = existing.rev; syncPush().then(function(){ toast('Sæsonen er lagt op', 'ok'); }); }
+            startSync();
+          });
+        } else {
+          syncPush({ create:true }).then(function(){
+            startSync();
+            toast('Sky-synk er slået til 🎉', 'ok');
+            render();
+          });
+        }
+      }).catch(function(err){
+        b.disabled = false; b.textContent = 'Gem og forbind';
+        var m = (err && err.message) || 'ukendt fejl';
+        if(/could not find the function|schema cache/i.test(m)) m = 'SQL-scriptet er ikke kørt i Supabase endnu';
+        else if(/invalid api key|jwt/i.test(m)) m = 'Nøglen ser forkert ud';
+        else if(/failed to fetch/i.test(m)) m = 'Kunne ikke nå serveren — tjek URL og net';
+        toast('Kunne ikke forbinde: ' + m, 'err');
+      });
+    }
+  });
+}
+
+/** To enheder har rettet samtidig. Lad brugeren vælge — og overskriv aldrig af sig selv. */
+function conflictDialog(){
+  if(!pendingRemote) return;
+  var mine = computeStandings(season()).filter(function(r){ return r.played > 0; });
+  var theirState = pendingRemote.state;
+  var theirs = computeStandings(theirState.season).filter(function(r){ return r.played > 0; });
+  var sum = function(list, s){
+    return plural(s.tournaments.filter(function(x){ return buildBracket(x).complete; }).length,'turnering','turneringer') +
+      (list[0] ? ' · fører: ' + esc(list[0].name) + ' (' + list[0].points + 'p)' : ' · ingen point endnu');
+  };
+  openModal(
+    '<div class="modal-head"><h3>Sæsonen er rettet to steder</h3></div>' +
+    '<div class="modal-body">' +
+      '<p style="margin-top:0">En anden enhed har gemt ændringer, mens du også har rettet her. ' +
+      'Vælg hvilken version der skal gælde — den anden går tabt.</p>' +
+      '<div class="stack-8" style="margin-top:14px">' +
+        '<div class="stat"><div class="k">På denne enhed</div><div class="dim" style="margin-top:4px">' + sum(mine, season()) + '</div></div>' +
+        '<div class="stat"><div class="k">I skyen</div><div class="dim" style="margin-top:4px">' + sum(theirs, theirState.season) + '</div></div>' +
+      '</div>' +
+      '<p class="hint warn">Er du i tvivl, så hent en backup af denne enhed først — så kan du altid gå tilbage.</p>' +
+    '</div>' +
+    '<div class="modal-foot">' +
+      '<button class="btn ghost spacer" data-c="backup" style="flex:0 0 auto">💾 Backup først</button>' +
+      '<button class="btn" data-c="theirs">Brug skyens</button>' +
+      '<button class="btn primary" data-c="mine">Brug min</button>' +
+    '</div>',
+    { dismissable:false }
+  );
+  currentModal().addEventListener('click', function(e){
+    var b = e.target.closest('[data-c]');
+    if(!b) return;
+    var a = b.getAttribute('data-c');
+    if(a === 'backup'){ exportData(); return; }
+    if(a === 'theirs'){
+      closeModal();
+      adoptRemote(pendingRemote.state, pendingRemote.rev);
+      toast('Skyens version er hentet');
+      return;
+    }
+    if(a === 'mine'){
+      sync.rev = pendingRemote.rev;      // skriv oven på deres revision
+      pendingRemote = null;
+      closeModal();
+      syncPush().then(function(){ toast('Din version er lagt op', 'ok'); });
+    }
   });
 }
 
@@ -2463,6 +2827,7 @@ document.addEventListener('click', function(e){
   else if(act === 'season-final') startSeasonFinal();
   else if(act === 'end-season') endSeason();
   else if(act === 'data') dataModal();
+  else if(act === 'sync-panel') syncPanel();
   else if(act === 'print') window.print();
   else if(act === 'reopen') reopenTournament(a.getAttribute('data-id'));
   else if(act === 'del-tournament') deleteTournament(a.getAttribute('data-id'));
@@ -2491,6 +2856,9 @@ if(!state){
 }
 if(activeTournament()) view = 'tournament';
 render();
+
+loadSyncCfg();
+if(syncOn()){ setSyncStatus('ok'); startSync(); }
 
 // Kører siden hosted, kan den få lov at levere backup-filen gennem værten.
 // Findes muligheden ikke, bliver det ved den almindelige download.

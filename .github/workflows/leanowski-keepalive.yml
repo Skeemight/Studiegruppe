@@ -1,0 +1,46 @@
+# Supabase pauser gratis-projekter efter ca. en uges inaktivitet, og et pauset
+# projekt skal genstartes manuelt i dashboardet. Spiller baren kun hver anden
+# uge, ville trackeren derfor være død hver gang de skulle bruge den.
+#
+# Dette job laver et harmløst opslag et par gange om ugen, så projektet tæller
+# som aktivt. Det henter ingenting og skriver ingenting.
+#
+# Sådan slås det til:
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#     SUPABASE_URL       https://xxxx.supabase.co
+#     SUPABASE_ANON_KEY  eyJhbGciOi...
+# Uden de to secrets springer jobbet bare over.
+
+name: Hold Supabase vågen
+
+on:
+  schedule:
+    - cron: '0 9 * * 1,4'      # mandag og torsdag kl. 09 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kald databasen
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "SUPABASE_URL eller SUPABASE_ANON_KEY mangler — springer over."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/out.txt -w '%{http_code}' \
+            -X POST "${URL%/}/rest/v1/rpc/league_get" \
+            -H "apikey: $KEY" \
+            -H "Authorization: Bearer $KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"p_id":"keepalive"}' || echo 000)
+          echo "HTTP $code"
+          if [ "$code" = "200" ]; then
+            echo "Projektet svarer — det er vågent."
+          else
+            echo "Uventet svar:"; cat /tmp/out.txt
+            exit 1
+          fi
