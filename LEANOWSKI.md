@@ -156,6 +156,30 @@ af tests der kører den rigtige kode direkte fra HTML-filen:
 npm run test:leanowski
 ```
 
+## Læg den på jeres egen adresse
+
+Trackeren er én statisk fil, så den kan ligge hvor som helst. Byg den til en
+mappe hostene forstår:
+
+```bash
+npm run build:leanowski     # -> dist/index.html + robots.txt
+```
+
+Filen bliver til `index.html`, så adressen bliver ren — `https://liga.eksempel.dk/`
+og ikke `.../leanowski.html`.
+
+**Cloudflare Pages eller Vercel** (gratis, kan sættes op fra en telefon):
+forbind GitHub-repoet, sæt build-kommandoen til `npm run build:leanowski` og
+output-mappen til `dist`. Derefter opdaterer siden sig selv hver gang der
+pushes.
+
+**Eget domæne** er det der reelt gør adressen professionel. Både Cloudflare
+Pages og Vercel tager et domæne gratis — man peger en CNAME på dem. Har baren
+allerede et domæne, koster et underdomæne som `liga.` ingenting.
+
+Appen medbringer sit eget ikon og hedder "Léanowski Liga" på hjemmeskærmen,
+uanset hvor den ligger.
+
 ## Den hostede udgave
 
 `public/leanowski.html` er den eneste kildefil. Den hostede kopi genereres ud af

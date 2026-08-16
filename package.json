@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:leanowski": "node scripts/leanowski-test.js"
+    "test:leanowski": "node scripts/leanowski-test.js",
+    "build:leanowski": "node scripts/build-leanowski-site.js dist"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
