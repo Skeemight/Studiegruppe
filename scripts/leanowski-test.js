@@ -410,6 +410,90 @@ test('point følger stadig placeringerne efter en ombytning', () => {
   eq(st.filter(r => r.played === 1).length, 4, 'alle fire hold har spillet');
 });
 
+/* ---------- udtrukne hold og w.o. ---------- */
+test('et hold trukket ud sender modstanderen direkte videre', () => {
+  const t = tournament(8);
+  const before = buildBracket(t).rounds[0][0];
+  const gone = before.a;
+  t.slots[t.slots.indexOf(gone)] = null;
+  t.entrants = t.entrants.filter(x => x !== gone);
+  const m = buildBracket(t).rounds[0][0];
+  eq(m.a, null);
+  eq(m.winner, before.b, 'modstanderen går videre');
+  ok(m.bye, 'kampen er markeret som oversidder');
+});
+
+test('en helt tom gren låser ikke bracketet fast', () => {
+  // Begge hold i kamp 0 trækkes ud: semifinalen må ikke vente på en kamp der aldrig kommer.
+  const t = tournament(8);
+  t.slots[0] = null;
+  t.slots[1] = null;
+  const b = buildBracket(t);
+  ok(b.rounds[0][0].dead, 'kampen er død');
+  eq(b.rounds[0][0].winner, null);
+
+  // Spil resten og se at turneringen kan gøres færdig.
+  const t2 = tournament(8);
+  t2.slots[0] = null;
+  t2.slots[1] = null;
+  t2.entrants = t2.slots.filter(Boolean);
+  const done = playFavourites(t2);
+  ok(done.complete, 'turneringen skal kunne spilles færdig med en tom gren');
+  ok(done.places[1], 'der skal være en vinder');
+  const sf = buildBracket(t2).rounds[1][0];
+  ok(sf.bye, 'semifinalen mod den tomme gren er en oversidder');
+});
+
+test('alle fire placeringer kan stadig uddeles når et hold er trukket ud', () => {
+  const s = { teams: teams(8), tournaments: [] };
+  const t = tournament(8);
+  t.slots[t.slots.indexOf('t5')] = null;
+  t.entrants = t.entrants.filter(x => x !== 't5');
+  playFavourites(t);
+  s.tournaments.push(t);
+  const st = computeStandings(s);
+  eq(st.reduce((sum, r) => sum + r.points, 0), 10, 'der uddeles stadig 4+3+2+1');
+  eq(st.find(r => r.name === 'Hold 5').played, 0, 'det udtrukne hold har ikke spillet med');
+});
+
+test('w.o. giver sejren videre uden at tælle som en spillet kamp', () => {
+  // 4 hold = 2 semifinaler + finale + bronzekamp = 4 afgjorte kampe.
+  const plain = { teams: teams(4), tournaments: [] };
+  const a = tournament(4);
+  playFavourites(a);
+  plain.tournaments.push(a);
+  const normal = computeStandings(plain);
+  eq(normal.reduce((s, r) => s + r.wins, 0), 4, 'uden w.o. tælles alle fire kampe');
+
+  // Samme turnering, men den ene semifinale vindes på w.o.
+  const s = { teams: teams(4), tournaments: [] };
+  const t = tournament(4);
+  const m = buildBracket(t).rounds[0][0];
+  t.picks[m.id] = m.a;
+  t.wo = { [m.id]: true };
+  eq(buildBracket(t).rounds[0][0].winner, m.a, 'holdet går videre på w.o.');
+  playFavourites(t);
+  s.tournaments.push(t);
+  const st = computeStandings(s);
+
+  eq(st.reduce((r, x) => r + x.wins, 0), 3, 'w.o.-kampen tælles ikke med');
+  eq(st.reduce((r, x) => r + x.losses, 0), 3, 'og giver heller ikke et nederlag');
+  eq(st.reduce((r, x) => r + x.points, 0), 10, 'pointene uddeles som normalt');
+  eq(st.filter(x => x.played === 1).length, 4, 'alle fire hold står stadig som deltagere');
+});
+
+test('et w.o.-mærke overlever ikke at resultatet bliver rettet', () => {
+  const t = tournament(4);
+  const m = buildBracket(t).rounds[0][0];
+  t.picks[m.id] = m.a;
+  t.wo = { [m.id]: true };
+  // Lederen retter: kampen blev alligevel spillet, og den anden vandt.
+  t.picks[m.id] = m.b;
+  prunePicks(t);
+  // pruneWalkovers lever i brugerfladen; her tjekkes blot at resultatet skifter rent.
+  eq(buildBracket(t).rounds[0][0].winner, m.b, 'det nye resultat gælder');
+});
+
 /* ---------- holdnavne ---------- */
 test('samme navn genkendes uanset store bogstaver og tegnsætning', () => {
   const same = ['Bajer Boys', 'bajer boys', 'BAJER BOYS', 'Bajer-Boys', ' Bajer  Boys '];

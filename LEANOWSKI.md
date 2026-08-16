@@ -53,6 +53,25 @@ Mens redigeringen er slået til, kan man ikke komme til at sætte vindere. Bytte
 I om på hold der allerede har spillet, bliver netop de kampe nulstillet, og
 appen fortæller hvor mange. ↺ fortryder hele byttet.
 
+## Når noget går skævt
+
+**Stavefejl i et holdnavn.** Tryk **✎ Omdøb hold** når du sætter en turnering op,
+eller **Rediger hold** under Historik. Navnet rettes overalt — også i tidligere
+turneringer — så point og historik følger med. Et navn der allerede findes,
+afvises.
+
+**Et hold møder ikke op til en kamp.** Tryk **Udeblevet?** øverst på kampen under
+"Klar til at spille nu" og vælg hvem der manglede. Det andet hold går videre på
+w.o., og kampen tæller ikke med i kampstatistikken.
+
+**Et hold går hjem før de har spillet.** Vælg dem under **⇄ Ret opstilling** og
+tryk **Træk ud**. Deres modstander går direkte videre. Har holdet allerede
+spillet, brug w.o. i stedet — ellers ville en modstander de slog komme tilbage i
+turneringen.
+
+Bemærk at en turnering kan ende med kun tre præmieplaceringer, hvis der ikke er
+nogen semifinaletaber at spille bronzekamp mod. Så uddeles 4+3+2 point.
+
 ## Sæsonen
 
 Pointene stables op hen over sæsonen (typisk et halvt år). Forsiden viser altid
