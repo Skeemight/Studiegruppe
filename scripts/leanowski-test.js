@@ -410,6 +410,63 @@ test('point følger stadig placeringerne efter en ombytning', () => {
   eq(st.filter(r => r.played === 1).length, 4, 'alle fire hold har spillet');
 });
 
+/* ---------- indtastede resultater fra turneringer spillet før appen ---------- */
+function manual(places, extra = []) {
+  return {
+    id: 'm' + places.join(''), name: 'Gammel turnering', date: '2026-08-01',
+    manual: true, places: Object.fromEntries(places.map((id, i) => [i + 1, id])),
+    entrants: [...places, ...extra], slots: [], picks: {}, swaps: {}, wo: {},
+  };
+}
+
+test('et indtastet resultat giver 4/3/2/1 point', () => {
+  const s = { teams: teams(4), tournaments: [manual(['t1', 't2', 't3', 't4'])] };
+  const st = computeStandings(s);
+  eq(st.map(r => [r.name, r.points]), [
+    ['Hold 1', 4], ['Hold 2', 3], ['Hold 3', 2], ['Hold 4', 1],
+  ]);
+  eq(st.map(r => r.played), [1, 1, 1, 1]);
+});
+
+test('et indtastet resultat opfinder ikke kampstatistik', () => {
+  const s = { teams: teams(4), tournaments: [manual(['t1', 't2', 't3', 't4'])] };
+  const st = computeStandings(s);
+  eq(st.map(r => r.wins + '-' + r.losses), ['0-0', '0-0', '0-0', '0-0'],
+    'vi kender ikke kampene, så der må ikke stå sejre');
+  const b = buildBracket(s.tournaments[0]);
+  ok(b.complete, 'det tæller som en færdig turnering');
+  eq(logic.allMatches(b).length, 0, 'der er ingen kampe at vise');
+  eq(readyMatches(b).length, 0);
+});
+
+test('kun nr. 1 og 2 udfyldt giver 4+3 point', () => {
+  const s = { teams: teams(4), tournaments: [manual(['t1', 't2'])] };
+  const st = computeStandings(s);
+  eq(st.filter(r => r.points > 0).map(r => [r.name, r.points]), [['Hold 1', 4], ['Hold 2', 3]]);
+  eq(st.filter(r => r.played === 1).length, 2, 'kun de to deltog');
+});
+
+test('andre deltagere tæller med som turnering, men uden point', () => {
+  const s = { teams: teams(6), tournaments: [manual(['t1', 't2', 't3', 't4'], ['t5', 't6'])] };
+  const st = computeStandings(s);
+  const row = Object.fromEntries(st.map(r => [r.name, r.points + '/' + r.played]));
+  eq(row['Hold 5'], '0/1', 'deltog, men fik ingen point');
+  eq(row['Hold 6'], '0/1');
+  eq(st.reduce((a, r) => a + r.points, 0), 10);
+});
+
+test('indtastede og spillede turneringer lægges sammen', () => {
+  const played = tournament(4);
+  playFavourites(played);
+  const s = { teams: teams(4), tournaments: [manual(['t4', 't3', 't2', 't1']), played] };
+  const st = computeStandings(s);
+  eq(st.map(r => r.points), [5, 5, 5, 5], 'alle fire ender på 4+1 eller 3+2 point');
+  eq(st.map(r => r.name).sort(), ['Hold 1', 'Hold 2', 'Hold 3', 'Hold 4']);
+  eq(st.map(r => r.played), [2, 2, 2, 2]);
+  // Sejrene kommer kun fra den spillede turnering.
+  eq(st.reduce((a, r) => a + r.wins, 0), 4, 'kun den spillede turnerings 4 kampe tælles');
+});
+
 /* ---------- udtrukne hold og w.o. ---------- */
 test('et hold trukket ud sender modstanderen direkte videre', () => {
   const t = tournament(8);

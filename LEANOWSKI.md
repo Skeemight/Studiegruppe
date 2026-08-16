@@ -43,6 +43,20 @@ ikke spørgsmålet.
 | 🥉 3. plads | 2 |
 | 4️⃣ 4. plads | 1 |
 
+## Sæsonen er allerede i gang
+
+Er der spillet turneringer før appen kom til, så tryk **⌨︎ Indtast tidligere** på
+forsiden. Skriv navn, dato og hvem der blev nr. 1 til 4 — så lægges pointene til
+sæsonen. Hold der ikke findes endnu, oprettes automatisk, og kendte navne
+genkendes uanset store bogstaver. Ligner et navn et hold der findes i forvejen,
+foreslås det rettede navn.
+
+Nr. 3 og 4 kan stå tomme. Andre der deltog uden at komme på podiet kan sættes
+på, så deres antal turneringer bliver rigtigt — de får ingen point.
+
+Et indtastet resultat giver **ingen** kampstatistik, da kampene ikke kendes.
+Det står mærket "indtastet" i Historik og kan rettes med **Ret**.
+
 ## Ret hvem der møder hvem
 
 Skal to bestemte hold mødes, så tryk **⇄ Ret opstilling** under turneringen og

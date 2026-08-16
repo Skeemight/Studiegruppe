@@ -443,6 +443,15 @@ function roundName(r, nRounds){
  * Alt er afledt — et ændret valg invaliderer automatisk alt nedstrøms.
  */
 function buildBracket(t){
+  // Et indtastet resultat fra en turnering der blev spillet før appen kom til.
+  // Der er ingen kampe at bygge — kun placeringerne. Uden kampe tælles der
+  // heller ingen sejre, hvilket er rigtigt: vi kender dem ikke.
+  if(t.manual){
+    return {
+      rounds: [], bronze: null, final: null, nRounds: 0, size: 0,
+      places: t.places || {}, complete: true, manual: true
+    };
+  }
   var slots = t.slots || [];
   var picks = t.picks || {};
   var size = slots.length;
@@ -516,7 +525,7 @@ function buildBracket(t){
     }
   }
 
-  var finalM = rounds[nRounds - 1][0];
+    var finalM = rounds[nRounds - 1][0];
   var places = {};
   if(finalM.winner){
     places[1] = finalM.winner;
@@ -1307,6 +1316,7 @@ function viewSeason(){
     '<div class="spacer"></div>' +
     '<div class="row no-print" style="flex:1 1 auto;min-width:0;gap:8px">' +
       '<button class="btn sm ghost" data-act="rename-season">✎ Omdøb</button>' +
+      '<button class="btn sm ghost" data-act="manual-result">⌨︎ Indtast tidligere</button>' +
       '<button class="btn primary" data-act="new-tournament">+ Ny turnering</button>' +
     '</div>' +
   '</div>';
@@ -1632,7 +1642,8 @@ function viewHistory(){
         '<div class="date">' + esc(fmtDate(t.date)) + '</div>' +
         '<div style="min-width:150px">' +
           '<div class="nm">' + (t.isFinale ? '👑 ' : '') + esc(t.name) + '</div>' +
-          '<div class="muted" style="font-size:12px">' + plural(t.entrants.length,'hold','hold') + '</div>' +
+          '<div class="muted" style="font-size:12px">' + plural(t.entrants.length,'hold','hold') +
+            (t.manual ? ' · indtastet' : '') + '</div>' +
         '</div>' +
         '<div class="res">' +
           (b.places[1] ? '<span>🥇 <b>' + esc(teamName(b.places[1])) + '</b></span>' : '') +
@@ -1690,6 +1701,172 @@ function viewHistory(){
 /* =======================================================================
    HANDLINGER
    ======================================================================= */
+
+/* --- indtast et resultat fra en turnering der allerede er spillet --- */
+var manualDraft = null;
+
+/** Find holdet, eller opret det. Bruges når fire navne tastes ind på én gang. */
+function resolveTeamName(name){
+  var v = String(name || '').trim();
+  if(!v) return null;
+  var t = findTeamByName(v);
+  if(t) return t.id;
+  var id = uid();
+  season().teams.push({ id:id, name:v, createdAt:new Date().toISOString() });
+  return id;
+}
+
+function openManualResult(existingId){
+  var s = season();
+  var t = null;
+  if(existingId){
+    for(var i=0;i<s.tournaments.length;i++) if(s.tournaments[i].id === existingId) t = s.tournaments[i];
+  }
+  manualDraft = t
+    ? { id:t.id, name:t.name, date:t.date,
+        names:[1,2,3,4].map(function(p){ return t.places && t.places[p] ? teamName(t.places[p]) : ''; }),
+        others:(t.entrants || []).filter(function(id){
+          return !t.places || [1,2,3,4].every(function(p){ return t.places[p] !== id; });
+        }) }
+    : { id:null, name:'Turnering ' + (s.tournaments.length + 1), date:todayISO(), names:['','','',''], others:[] };
+  renderManualResult();
+}
+
+function renderManualResult(){
+  var d = manualDraft, s = season();
+  var medals = ['🥇 1. plads — 4 point', '🥈 2. plads — 3 point', '🥉 3. plads — 2 point', '4️⃣ 4. plads — 1 point'];
+  var rows = '';
+  for(var i=0;i<4;i++){
+    var val = d.names[i];
+    var near = val && !findTeamByName(val)
+      ? nearestName(val, s.teams.map(function(x){ return x.name; }))
+      : null;
+    rows += '<div class="field">' +
+      '<span class="label">' + medals[i] + (i > 1 ? ' <span class="muted">(valgfri)</span>' : '') + '</span>' +
+      '<input type="text" class="mrName" data-i="' + i + '" list="teamNames" autocomplete="off" ' +
+        'placeholder="Holdnavn" value="' + esc(val) + '">' +
+      (near ? '<p class="hint warn">Ligner <b>' + esc(near) + '</b> — ' +
+        '<button class="cap-btn" data-use="' + i + '" data-name="' + esc(near) + '">brug det navn</button></p>' : '') +
+    '</div>';
+  }
+
+  var picked = d.others || [];
+  var otherTeams = s.teams.filter(function(x){
+    return d.names.map(normName).indexOf(normName(x.name)) < 0;
+  });
+
+  openModal(
+    '<div class="modal-head"><h3>' + (d.id ? 'Ret resultat' : 'Indtast tidligere resultat') + '</h3>' +
+      '<button class="icon-btn" data-c="close">✕</button></div>' +
+    '<datalist id="teamNames">' + s.teams.map(function(x){ return '<option value="' + esc(x.name) + '">'; }).join('') + '</datalist>' +
+    '<div class="modal-body">' +
+      '<p class="dim" style="margin-top:0">Til turneringer der allerede er spillet. Skriv hvem der ' +
+      'blev nr. 1 til 4, så lægges pointene til sæsonen. Hold der ikke findes endnu, oprettes automatisk.</p>' +
+      '<div class="row">' +
+        '<div class="field"><span class="label">Navn</span>' +
+          '<input type="text" id="mrName" value="' + esc(d.name) + '" maxlength="40"></div>' +
+        '<div class="field" style="max-width:190px"><span class="label">Dato</span>' +
+          '<input type="date" id="mrDate" value="' + esc(d.date) + '"></div>' +
+      '</div>' +
+      '<div class="divider"></div>' +
+      rows +
+      (otherTeams.length
+        ? '<div class="field"><span class="label">Andre der deltog — ' + picked.length + ' valgt</span>' +
+            '<p class="hint" style="margin-top:0">Tælles med under "turneringer", men får ingen point.</p>' +
+            '<div class="team-list" style="max-height:32vh">' + otherTeams.map(function(x){
+              var on = picked.indexOf(x.id) >= 0;
+              return '<div class="team-pick' + (on ? ' on' : '') + '" data-other="' + esc(x.id) + '">' +
+                '<span class="box">' + (on ? '✓' : '') + '</span>' +
+                '<span class="nm">' + esc(x.name) + '</span></div>';
+            }).join('') + '</div></div>'
+        : '') +
+    '</div>' +
+    '<div class="modal-foot">' +
+      '<button class="btn ghost" data-c="close">Annullér</button>' +
+      '<button class="btn primary" data-c="save">' + (d.id ? 'Gem rettelse' : 'Gem resultat') + '</button>' +
+    '</div>'
+  );
+
+  var root = currentModal();
+  function readFields(){
+    d.name = $('#mrName', root).value;
+    d.date = $('#mrDate', root).value;
+    var ins = root.querySelectorAll('.mrName');
+    for(var k=0;k<ins.length;k++) d.names[Number(ins[k].getAttribute('data-i'))] = ins[k].value;
+  }
+  // Genvis kun når et felt forlades, så forslaget ikke afbryder mens man taster.
+  root.addEventListener('focusout', function(e){
+    if(e.target.classList && e.target.classList.contains('mrName')){
+      readFields();
+      setTimeout(function(){ if(currentModal() === root) renderManualResult(); }, 60);
+    }
+  });
+  root.addEventListener('click', function(e){
+    var use = e.target.closest('[data-use]');
+    if(use){
+      readFields();
+      d.names[Number(use.getAttribute('data-use'))] = use.getAttribute('data-name');
+      renderManualResult();
+      return;
+    }
+    var oth = e.target.closest('[data-other]');
+    if(oth){
+      readFields();
+      var id = oth.getAttribute('data-other'), at = d.others.indexOf(id);
+      if(at >= 0) d.others.splice(at, 1); else d.others.push(id);
+      renderManualResult();
+      return;
+    }
+    var b = e.target.closest('[data-c]');
+    if(!b) return;
+    if(b.getAttribute('data-c') === 'close'){ closeModal(); return; }
+    readFields();
+    saveManualResult();
+  });
+}
+
+function saveManualResult(){
+  var d = manualDraft;
+  var filled = d.names.filter(function(n){ return n.trim(); });
+  if(filled.length < 2){ toast('Skriv mindst nr. 1 og nr. 2', 'err'); return; }
+
+  var seen = {};
+  for(var i=0;i<d.names.length;i++){
+    var key = normName(d.names[i]);
+    if(!key) continue;
+    if(seen[key]){ toast('"' + d.names[i].trim() + '" står to gange', 'err'); return; }
+    seen[key] = true;
+  }
+
+  pushUndo();
+  var places = {}, entrants = [];
+  for(var p=1;p<=4;p++){
+    var id = resolveTeamName(d.names[p-1]);
+    if(id){ places[p] = id; entrants.push(id); }
+  }
+  for(var k=0;k<d.others.length;k++){
+    if(entrants.indexOf(d.others[k]) < 0) entrants.push(d.others[k]);
+  }
+
+  var t = null, list = season().tournaments;
+  if(d.id){ for(var j=0;j<list.length;j++) if(list[j].id === d.id) t = list[j]; }
+  if(!t){
+    t = { id: uid(), createdAt: new Date().toISOString(), manual: true };
+    list.push(t);
+  }
+  t.name = d.name.trim() || 'Turnering';
+  t.date = d.date || todayISO();
+  t.manual = true;
+  t.places = places;
+  t.entrants = entrants;
+  t.slots = []; t.picks = {}; t.swaps = {}; t.wo = {};
+
+  manualDraft = null;
+  closeModal();
+  view = 'season';
+  commit();
+  toast('Resultat gemt — pointene er lagt til', 'ok');
+}
 
 /* --- ny turnering --- */
 var draft = null;
@@ -2723,6 +2900,10 @@ function deleteTournament(id){
   });
 }
 function reopenTournament(id){
+  var list = season().tournaments;
+  for(var i=0;i<list.length;i++){
+    if(list[i].id === id && list[i].manual){ openManualResult(id); return; }
+  }
   var act = activeTournament();
   if(act && act.id !== id){
     toast('Afslut den igangværende turnering først', 'err');
@@ -2850,6 +3031,7 @@ document.addEventListener('click', function(e){
     openNewTournament();
   }
   else if(act === 'goto-tournament'){ view = 'tournament'; render(); }
+  else if(act === 'manual-result') openManualResult();
   else if(act === 'edit-lineup') toggleEditLineup();
   else if(act === 'edit-done'){ editMode = false; editSel = null; render(); }
   else if(act === 'withdraw') withdrawTeam();
