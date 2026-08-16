@@ -2428,6 +2428,24 @@ function resetAll(){
 }
 
 /* --- sky-synk: opsætning og konflikter --- */
+
+/**
+ * Link der sætter en ny enhed op med ét tryk. Liga-koden er med, så staff
+ * slipper for at taste den — til gengæld ER linket dermed adgangen, og det
+ * siger brugerfladen tydeligt.
+ */
+function staffLink(){
+  var payload = JSON.stringify({ url: sync.cfg.url, key: sync.cfg.key, league: sync.cfg.league });
+  var b64 = btoa(unescape(encodeURIComponent(payload)));   // tåler æøå og accenter
+  return location.origin + location.pathname + '#sync=' + encodeURIComponent(b64);
+}
+/** Fælles kopiér-til-udklipsholder med fallback til ældre browsere. */
+function copyText(text, okMsg){
+  var done = function(){ toast(okMsg || 'Kopieret', 'ok'); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(text, done); });
+  } else fallbackCopy(text, done);
+}
 function syncPanel(){
   if(pendingRemote){ conflictDialog(); return; }
   var c = sync.cfg || { url:'', key:'', league:'' };
@@ -2458,9 +2476,14 @@ function syncPanel(){
 
       '<div class="stack-8" style="margin-top:16px">' +
         '<button class="btn primary wide" data-c="save">Gem og forbind</button>' +
-        (syncOn() ? '<button class="btn wide" data-c="pull">Hent fra skyen nu</button>' : '') +
+        (syncOn() ? '<button class="btn wide" data-c="stafflink">🔗 Kopiér opsætningslink til staff</button>' : '') +
+        (syncOn() ? '<button class="btn ghost wide" data-c="pull">Hent fra skyen nu</button>' : '') +
         (syncOn() ? '<button class="btn ghost wide" data-c="offlink">Slå sky-synk fra på denne enhed</button>' : '') +
       '</div>' +
+      (syncOn()
+        ? '<p class="hint warn">Opsætningslinket indeholder liga-koden, så en ny enhed er sat op med ét tryk. ' +
+          'Det betyder også at linket <b>er</b> nøglen — del det kun med dem der skal kunne rette i sæsonen.</p>'
+        : '') +
       '<p class="hint">Nøglerne gemmes kun i denne browser og følger ikke med i en backup-fil.</p>' +
     '</div>' +
     '<div class="modal-foot"><button class="btn ghost" data-c="close">Luk</button></div>',
@@ -2474,6 +2497,7 @@ function syncPanel(){
     var a = b.getAttribute('data-c');
     if(a === 'close'){ closeModal(); return; }
     if(a === 'gen'){ $('#syLeague', root).value = newLeagueCode(); return; }
+    if(a === 'stafflink'){ copyText(staffLink(), 'Opsætningslink kopieret — del det kun med staff'); return; }
     if(a === 'pull'){ closeModal(); syncPull({ force:false }).then(function(){ toast('Hentet fra skyen'); }); return; }
     if(a === 'offlink'){
       confirmDialog({
@@ -2871,10 +2895,13 @@ loadSyncCfg();
 if(syncOn()){ setSyncStatus('ok'); startSync(); }
 
 /**
- * Et link kan medbringe projekt-URL og nøgle: #sync=<base64 af {url,key}>.
- * Det sparer indtastning af en 50 tegn lang nøgle på en telefon. Liga-koden
- * kommer aldrig med — den skrives i hånden, så den ikke ligger i et link
- * der bliver delt videre.
+ * Et opsætningslink medbringer projekt-URL, nøgle og eventuelt liga-koden:
+ * #sync=<base64 af {url,key,league}>. Det sparer staff for at taste en
+ * 50 tegn lang nøgle på en telefon.
+ *
+ * Felterne udfyldes, men der forbindes ikke af sig selv — man skal se hvad
+ * man kobler sig på og trykke Gem og forbind. Adressen ryddes med det samme,
+ * så koden ikke bliver hængende i browserhistorik eller et delt skærmbillede.
  */
 (function(){
   var m = /[#&]sync=([^&]+)/.exec(location.hash || '');
@@ -2884,10 +2911,10 @@ if(syncOn()){ setSyncStatus('ok'); startSync(); }
   try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
   if(!pre || !pre.url || !pre.key) return;
   if(syncOn()) return;                       // allerede sat op — rør ikke ved det
-  sync.cfg = { url: pre.url, key: pre.key, league: '' };
+  sync.cfg = { url: pre.url, key: pre.key, league: cleanLeagueCode(pre.league || '') };
   setTimeout(function(){
     syncPanel();
-    toast('URL og nøgle er udfyldt — skriv liga-koden');
+    toast(sync.cfg.league ? 'Alt er udfyldt — tryk Gem og forbind' : 'URL og nøgle er udfyldt — skriv liga-koden');
   }, 500);
 })();
 
