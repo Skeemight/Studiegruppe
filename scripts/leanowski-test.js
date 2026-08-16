@@ -24,13 +24,15 @@ const logic = new Function(
   code +
   '; return { POINTS, MAX_TEAMS, bracketSizeFor, seedOrder, buildSlots, buildBracket,' +
   ' allMatches, readyMatches, computeStandings, roundName, loserOf, placeOf,' +
-  ' normName, editDistance, nearestName };'
+  ' normName, editDistance, nearestName,' +
+  ' applyRoundSwaps, prunePicks, roundOccupants };'
 )();
 
 const {
   bracketSizeFor, seedOrder, buildSlots, buildBracket,
   readyMatches, computeStandings, roundName,
   normName, editDistance, nearestName,
+  prunePicks, roundOccupants,
 } = logic;
 
 /* ---------- lille test-runner ---------- */
@@ -290,6 +292,122 @@ test('kampstatistik tælles uden oversiddere', () => {
   eq(row['Hold 1'], '1-0');
   eq(row['Hold 2'], '1-1');
   eq(row['Hold 3'], '0-1');
+});
+
+/* ---------- turneringslederen retter opstillingen ---------- */
+function swapFirstRound(t, posA, posB) {          // som pickSwap gør det i runde 0
+  const tmp = t.slots[posA];
+  t.slots[posA] = t.slots[posB];
+  t.slots[posB] = tmp;
+  return prunePicks(t);
+}
+
+test('ombytning i første runde ændrer hvem der møder hvem', () => {
+  const t = tournament(4);                        // slots: t1,t4,t2,t3
+  const before = buildBracket(t).rounds[0].map(m => [m.a, m.b]);
+  eq(before, [['t1', 't4'], ['t2', 't3']]);
+  swapFirstRound(t, 1, 2);                        // byt t4 og t2
+  eq(buildBracket(t).rounds[0].map(m => [m.a, m.b]), [['t1', 't2'], ['t4', 't3']]);
+});
+
+test('ombytning før der er spillet nulstiller ingenting', () => {
+  const t = tournament(8);
+  eq(swapFirstRound(t, 0, 5), 0, 'ingen resultater at nulstille');
+  eq(Object.keys(t.picks).length, 0);
+});
+
+test('ombytning nulstiller kun de kampe der bliver ugyldige', () => {
+  // 8 hold ligger på plads 0-7 som t1,t8,t4,t5,t2,t7,t3,t6 — altså
+  // kamp0=plads 0-1, kamp1=plads 2-3, kamp2=plads 4-5, kamp3=plads 6-7.
+  const t = tournament(8);
+  const b0 = buildBracket(t);
+  t.picks[b0.rounds[0][0].id] = b0.rounds[0][0].a;   // spil kamp0
+  t.picks[b0.rounds[0][1].id] = b0.rounds[0][1].a;   // og kamp1
+  eq(Object.keys(t.picks).length, 2);
+
+  // Byt to hold i den anden halvdel: de spillede kampe skal overleve.
+  eq(swapFirstRound(t, 4, 6), 0, 'kampe i den anden halvdel må ikke røres');
+  eq(Object.keys(t.picks).length, 2);
+
+  // Byt nu et hold der HAR spillet, med et der ikke har.
+  eq(swapFirstRound(t, 0, 4), 1, 'kun den berørte kamp nulstilles');
+  eq(Object.keys(t.picks).length, 1, 'kamp1 står stadig');
+});
+
+test('ombytning inden for samme kamp ændrer ikke resultatet', () => {
+  // Plads 0 og 1 er de to hold i samme kamp — de mødes uanset rækkefølgen.
+  // (Brugerfladen blokerer det, men logikken skal heller ikke smide resultatet væk.)
+  const t = tournament(8);
+  const b0 = buildBracket(t);
+  t.picks[b0.rounds[0][0].id] = b0.rounds[0][0].a;
+  eq(swapFirstRound(t, 0, 1), 0, 'samme to hold, samme kamp');
+  eq(buildBracket(t).rounds[0][0].winner, b0.rounds[0][0].a, 'vinderen står ved magt');
+});
+
+test('ombytning rydder også kampene længere fremme', () => {
+  const t = tournament(8);
+  playFavourites(t);
+  ok(buildBracket(t).complete);
+  const played = Object.keys(t.picks).length;
+  const reset = swapFirstRound(t, 0, 2);          // på tværs af kamp0 og kamp1
+  ok(reset >= 4, 'begge kvartfinaler, semifinalen, finalen og bronzekampen skal falde, fik ' + reset);
+  ok(!buildBracket(t).complete, 'turneringen er ikke længere færdigspillet');
+  eq(Object.keys(t.picks).length, played - reset);
+});
+
+test('hold kan bytte plads i en senere runde', () => {
+  const t = tournament(8);
+  const b0 = buildBracket(t);
+  for (const m of b0.rounds[0]) t.picks[m.id] = m.a;   // øverste hold vinder alle
+  const semis = buildBracket(t).rounds[1].map(m => [m.a, m.b]);
+  const [[a1, b1], [a2, b2]] = semis;
+
+  t.swaps = { 1: [[b1, a2]] };                    // byt de to midterste
+  const after = buildBracket(t).rounds[1].map(m => [m.a, m.b]);
+  eq(after, [[a1, a2], [b1, b2]], 'semifinalerne skal have nye modstandere');
+  eq(prunePicks(t), 0, 'kvartfinalerne er uberørte');
+  eq(Object.keys(t.picks).length, 4);
+});
+
+test('et bytte i en senere runde springes over hvis holdet ryger ud', () => {
+  const t = tournament(8);
+  const b0 = buildBracket(t);
+  for (const m of b0.rounds[0]) t.picks[m.id] = m.a;
+  const semis = buildBracket(t).rounds[1].map(m => [m.a, m.b]);
+  const swapped = [semis[0][1], semis[1][0]];     // kamp1-vinderen og kamp2-vinderen
+  t.swaps = { 1: [swapped] };
+  eq(buildBracket(t).rounds[1][0].b, swapped[1], 'byttet gælder');
+
+  // Ret kvartfinalen så swapped[0] taber og aldrig når semifinalen.
+  const q = buildBracket(t).rounds[0][1];
+  t.picks[q.id] = q.b;
+
+  const b = buildBracket(t);
+  const occ = roundOccupants(b, 1);
+  ok(occ.indexOf(swapped[0]) < 0, 'holdet der tabte er ude af semifinalen');
+  ok(occ.indexOf(q.b) >= 0, 'og den nye vinder er kommet ind');
+  eq(occ.indexOf(swapped[1]), 2, 'byttet er droppet, så det andet hold står på sin egen plads igen');
+  eq(b.rounds.length, 3, 'bracketet har stadig sin normale form');
+  ok(!b.rounds[1].some(m => m.a && m.a === m.b), 'intet hold må stå på begge pladser i en kamp');
+});
+
+test('roundOccupants giver rundens pladser i rækkefølge', () => {
+  const t = tournament(4);
+  const b = buildBracket(t);
+  eq(roundOccupants(b, 0), ['t1', 't4', 't2', 't3']);
+  eq(roundOccupants(b, 1), [null, null], 'finalen er ikke afgjort endnu');
+});
+
+test('point følger stadig placeringerne efter en ombytning', () => {
+  const s = { teams: teams(4), tournaments: [] };
+  const t = tournament(4);
+  swapFirstRound(t, 1, 2);                        // t1 møder nu t2
+  playFavourites(t);
+  s.tournaments.push(t);
+  const st = computeStandings(s);
+  eq(st.reduce((sum, r) => sum + r.points, 0), 10, 'der uddeles stadig 4+3+2+1 point');
+  eq(st[0].name, 'Hold 1');
+  eq(st.filter(r => r.played === 1).length, 4, 'alle fire hold har spillet');
 });
 
 /* ---------- holdnavne ---------- */

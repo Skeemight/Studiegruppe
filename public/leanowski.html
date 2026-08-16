@@ -224,6 +224,11 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 .slot.lose{color:var(--muted)}
 .slot.lose .nm{text-decoration:line-through}
 .slot.tbd{color:var(--muted);font-weight:500;font-style:italic}
+.slot.swap{box-shadow:inset 2px 0 0 var(--border)}
+.slot.swap:hover:not(:disabled){background:var(--surface-3)}
+.slot.sel{background:var(--accent-dim);box-shadow:inset 2px 0 0 var(--accent);color:var(--accent-2)}
+.slot.sel .mark{opacity:1;font-size:14px}
+.bracket.editing .match{border-style:dashed}
 .match.done{opacity:.94}
 .bye-note{font-size:11px;color:var(--muted);padding:0 11px 9px}
 
@@ -433,15 +438,20 @@ function buildBracket(t){
   for(var r=0; r<nRounds; r++){
     var count = size / Math.pow(2, r+1);
     var ms = [];
+
+    // Rundens deltagere: første runde kommer fra lodtrækningen, resten fra
+    // vinderne i runden før. Har turneringslederen byttet om på nogen, lægges
+    // det oven på her.
+    var occ = [];
+    for(var q=0; q<count; q++){
+      if(r === 0){ occ.push(slots[q*2] || null, slots[q*2 + 1] || null); }
+      else { occ.push(rounds[r-1][q*2].winner, rounds[r-1][q*2 + 1].winner); }
+    }
+    if(r > 0) occ = applyRoundSwaps(occ, t.swaps && t.swaps[r]);
+
     for(var i=0; i<count; i++){
-      var id = 'r' + r + 'm' + i, a, b;
-      if(r === 0){
-        a = slots[i*2] || null;
-        b = slots[i*2 + 1] || null;
-      } else {
-        a = rounds[r-1][i*2].winner;
-        b = rounds[r-1][i*2 + 1].winner;
-      }
+      var id = 'r' + r + 'm' + i;
+      var a = occ[i*2], b = occ[i*2 + 1];
       var winner = null, bye = false;
       if(a && b){
         var p = picks[id];
@@ -506,6 +516,54 @@ function buildBracket(t){
 function loserOf(m){
   if(!m || !m.a || !m.b || !m.winner) return null;
   return m.winner === m.a ? m.b : m.a;
+}
+
+/**
+ * Turneringslederens ombytninger i en runde efter første.
+ * Byttene gemmes på holdene, ikke på pladserne, så de stadig giver mening
+ * hvis et tidligere resultat bliver rettet. Er et hold ikke længere med i
+ * runden, springes byttet bare over.
+ */
+function applyRoundSwaps(occ, swaps){
+  if(!swaps || !swaps.length) return occ;
+  var out = occ.slice();
+  for(var i=0; i<swaps.length; i++){
+    var a = out.indexOf(swaps[i][0]), b = out.indexOf(swaps[i][1]);
+    if(a >= 0 && b >= 0){
+      var tmp = out[a]; out[a] = out[b]; out[b] = tmp;
+    }
+  }
+  return out;
+}
+
+/**
+ * Fjerner resultater der ikke længere passer til kampen — f.eks. når to hold
+ * har byttet plads, eller et tidligere resultat er rettet. Køres til der ikke
+ * fjernes mere, da et bortfaldet resultat ændrer den næste runde.
+ * Returnerer hvor mange resultater der blev nulstillet.
+ */
+function prunePicks(t){
+  var removed = 0, pass;
+  do{
+    var b = buildBracket(t), ms = allMatches(b), keep = {}, before = 0, after = 0, k;
+    for(var i=0; i<ms.length; i++){
+      var m = ms[i], p = t.picks[m.id];
+      if(p && m.a && m.b && (p === m.a || p === m.b)) keep[m.id] = p;
+    }
+    for(k in t.picks) if(Object.prototype.hasOwnProperty.call(t.picks, k)) before++;
+    for(k in keep) if(Object.prototype.hasOwnProperty.call(keep, k)) after++;
+    t.picks = keep;
+    pass = before - after;
+    removed += pass;
+  } while(pass > 0);
+  return removed;
+}
+
+/** Rundens deltagere som én flad liste: [kamp0.a, kamp0.b, kamp1.a, ...]. */
+function roundOccupants(b, r){
+  var out = [], ms = b.rounds[r] || [];
+  for(var i=0; i<ms.length; i++) out.push(ms[i].a, ms[i].b);
+  return out;
 }
 
 /** Alle kampe inkl. bronzekamp, i spilrækkefølge. */
@@ -710,6 +768,8 @@ function plural(n, one, many){ return n + ' ' + (n === 1 ? one : many); }
 var state = null;
 var view = 'season';
 var undoStack = [];
+var editMode = false;      // turneringslederen retter i opstillingen
+var editSel = null;        // {round, pos, teamId} — første valgte plads
 
 function newSeason(name, teams){
   return {
@@ -762,6 +822,7 @@ function normalize(o){
     t.picks = t.picks || {};
     t.slots = t.slots || [];
     t.entrants = t.entrants || [];
+    t.swaps = t.swaps || {};
   }
   return o;
 }
@@ -1163,10 +1224,33 @@ function viewTournament(){
     '</div>' +
     '<div class="spacer"></div>' +
     '<div class="row no-print" style="flex:0 0 auto;gap:8px">' +
+      '<button class="btn sm ' + (editMode ? 'primary' : 'ghost') + '" data-act="edit-lineup">⇄ Ret opstilling</button>' +
       '<button class="btn sm ghost" data-act="edit-tournament">✎ Navn</button>' +
       '<button class="btn sm danger" data-act="cancel-tournament">Slet turnering</button>' +
     '</div>' +
   '</div>';
+
+  if(editMode){
+    var playedCount = 0, allM = allMatches(b);
+    for(var q=0;q<allM.length;q++) if(allM[q].winner && !allM[q].bye) playedCount++;
+    h += '<div class="card no-print" style="border-color:var(--accent)">' +
+      '<div class="h-row" style="margin-bottom:8px">' +
+        '<h2>⇄ Ret opstilling</h2>' +
+        '<div class="spacer"></div>' +
+        '<button class="btn primary" data-act="edit-done">Færdig</button>' +
+      '</div>' +
+      '<p class="dim" style="margin:0">' +
+        (editSel
+          ? (editSel.teamId
+              ? 'Valgt: <b>' + esc(teamName(editSel.teamId)) + '</b> — tryk nu på det hold der skal bytte plads med det.'
+              : 'Valgt: <b>en tom plads</b> — tryk nu på det hold der skal rykke derhen.')
+          : 'Tryk på to hold for at bytte deres pladser. De skal være i samme runde.') +
+      '</p>' +
+      (playedCount
+        ? '<p class="hint warn">Der er spillet ' + plural(playedCount,'kamp','kampe') + '. Bytter du om på hold der allerede har spillet, bliver de resultater nulstillet — du får besked om hvor mange.</p>'
+        : '') +
+    '</div>';
+  }
 
   if(b.complete){
     h += '<div class="winner-wrap card" style="margin-bottom:14px">' +
@@ -1187,7 +1271,7 @@ function viewTournament(){
       '</div>' +
       '<p class="hint">Pointene tæller allerede med i stillingen. Klik på en kamp nedenfor hvis noget skal rettes.</p>' +
     '</div>';
-  } else if(ready.length){
+  } else if(ready.length && !editMode){
     h += '<div class="card no-print" style="margin-bottom:14px">' +
       '<div class="h-row" style="margin-bottom:12px">' +
         '<h2>⚡ Klar til at spille nu</h2>' +
@@ -1204,7 +1288,9 @@ function viewTournament(){
   }
 
   h += '<div class="card">' +
-    '<div class="h-row"><h2>Bracket</h2><div class="spacer"></div><span class="label">Tryk på et hold for at sætte det videre</span></div>' +
+    '<div class="h-row"><h2>Bracket</h2><div class="spacer"></div><span class="label">' +
+      (editMode ? 'Tryk på to hold for at bytte dem' : 'Tryk på et hold for at sætte det videre') +
+    '</span></div>' +
     bracketHTML(t, b) +
   '</div>';
 
@@ -1212,7 +1298,7 @@ function viewTournament(){
 }
 
 function bracketHTML(t, b){
-  var h = '<div class="bracket">';
+  var h = '<div class="bracket' + (editMode ? ' editing' : '') + '">';
   for(var r=0;r<b.rounds.length;r++){
     var isLast = r === b.rounds.length - 1;
     h += '<div class="round"><div class="round-head">' + esc(roundName(r, b.nRounds)) + '</div><div class="round-body">';
@@ -1238,6 +1324,26 @@ function matchHTML(t, m, big){
 
 function slotHTML(t, m, key){
   var id = m[key];
+  var pos = m.idx * 2 + (key === 'a' ? 0 : 1);
+  var seed = m.round === 0 && m.id !== 'bronze' ? seedNoOf(t, id) : '';
+
+  // Redigering: pladserne bliver valgbare i stedet for at afgøre vindere.
+  // Bronzekampen er sat af semifinalerne og kan derfor ikke rettes her.
+  if(editMode && m.id !== 'bronze'){
+    var selectable = !!id || m.round === 0;      // tomme pladser kan kun byttes i 1. runde
+    var sel = editSel && editSel.round === m.round && editSel.pos === pos;
+    var label = id ? esc(teamName(id)) : (m.round === 0 ? 'Tom plads' : 'Afventer');
+    if(!selectable){
+      return '<div class="slot tbd"><span class="seed"></span><span class="nm">' + label + '</span></div>';
+    }
+    return '<button class="slot swap' + (sel ? ' sel' : '') + (id ? '' : ' tbd') + '" ' +
+      'data-swap="' + m.round + ':' + pos + '">' +
+      '<span class="seed">' + (seed || '') + '</span>' +
+      '<span class="nm">' + label + '</span>' +
+      '<span class="mark">' + (sel ? '⇄' : '') + '</span>' +
+    '</button>';
+  }
+
   if(!id){
     var txt = m.bye ? 'Oversidder' : 'Afventer';
     return '<div class="slot tbd"><span class="seed"></span><span class="nm">' + txt + '</span></div>';
@@ -1246,7 +1352,6 @@ function slotHTML(t, m, key){
   var isLose = m.winner && !isWin;
   var c = 'slot' + (isWin ? ' win' : '') + (isLose ? ' lose' : '');
   var mark = isWin ? '✓' : '';
-  var seed = m.round === 0 && m.id !== 'bronze' ? seedNoOf(t, id) : '';
   return '<button class="' + c + '" data-pick="' + esc(m.id) + '" data-team="' + esc(id) + '">' +
     '<span class="seed">' + (seed || '') + '</span>' +
     '<span class="nm">' + esc(teamName(id)) + '</span>' +
@@ -1553,6 +1658,7 @@ function startTournament(){
     entrants: ordered.slice(),
     slots: buildSlots(ordered, size),
     picks: {},
+    swaps: {},
     seedMode: draft.seedMode,
     isFinale: !!draft.isFinale
   };
@@ -1573,21 +1679,89 @@ function pickWinner(matchId, teamId){
   if(t.picks[matchId] === teamId) delete t.picks[matchId];  // tryk igen = fortryd
   else t.picks[matchId] = teamId;
 
-  // Ryd valg der ikke længere giver mening (holdet er ikke længere i kampen).
-  var b = buildBracket(t);
-  var valid = {};
-  var ms = allMatches(b);
-  for(var i=0;i<ms.length;i++){
-    var m = ms[i];
-    if(m.a && m.b && t.picks[m.id] && (t.picks[m.id] === m.a || t.picks[m.id] === m.b)){
-      valid[m.id] = t.picks[m.id];
-    }
-  }
-  t.picks = valid;
+  prunePicks(t);   // et ændret resultat gør de efterfølgende kampe ugyldige
   commit();
 
   var b2 = buildBracket(t);
   if(b2.complete) toast('🏆 ' + teamName(b2.places[1]) + ' vinder!', 'ok');
+}
+
+/* --- ret opstilling --- */
+function toggleEditLineup(){
+  editMode = !editMode;
+  editSel = null;
+  render();
+  if(editMode) toast('Tryk på to hold for at bytte dem');
+}
+
+/**
+ * Turneringslederen har trykket på en plads i bracketet.
+ * Første tryk vælger, andet tryk bytter de to hold om.
+ */
+function pickSwap(spec){
+  var t = activeTournament();
+  if(!t) return;
+  var parts = spec.split(':');
+  var r = Number(parts[0]), pos = Number(parts[1]);
+  var b = buildBracket(t);
+  var occ = roundOccupants(b, r);
+  var teamId = occ[pos] || null;
+
+  if(!editSel){
+    if(r > 0 && !teamId){ toast('Pladsen er ikke afgjort endnu'); return; }
+    editSel = { round:r, pos:pos, teamId:teamId };
+    render();
+    return;
+  }
+  if(editSel.round !== r){
+    toast('Hold kan kun bytte plads inden for samme runde');
+    editSel = { round:r, pos:pos, teamId:teamId };
+    render();
+    return;
+  }
+  if(editSel.pos === pos){            // samme plads igen = fortryd valget
+    editSel = null;
+    render();
+    return;
+  }
+  if(Math.floor(editSel.pos / 2) === Math.floor(pos / 2)){
+    toast('De to hold møder allerede hinanden');
+    return;
+  }
+  if(!editSel.teamId && !teamId){
+    toast('Vælg mindst ét hold');
+    return;
+  }
+
+  if(r === 0 && (pos >= t.slots.length || editSel.pos >= t.slots.length)){
+    // Skriver vi uden for lodtrækningen, vokser arrayet og bracket-størrelsen
+    // bliver ugyldig. Kan ikke ske fra en frisk visning, men turneringen skal
+    // holde en hel sæson — så hellere afvise end at ødelægge den.
+    toast('Pladsen findes ikke — prøv igen');
+    editSel = null;
+    render();
+    return;
+  }
+
+  pushUndo();
+  if(r === 0){
+    // Første runde er selve lodtrækningen — byt pladserne direkte.
+    var tmp = t.slots[editSel.pos];
+    t.slots[editSel.pos] = t.slots[pos];
+    t.slots[pos] = tmp;
+  } else {
+    if(!editSel.teamId || !teamId){ undoStack.pop(); toast('Begge pladser skal være afgjort'); return; }
+    if(!t.swaps) t.swaps = {};        // turneringer fra en ældre backup har ikke feltet
+    t.swaps[r] = (t.swaps[r] || []).concat([[editSel.teamId, teamId]]);
+  }
+
+  var reset = prunePicks(t);
+  var moved = [editSel.teamId, teamId].filter(Boolean).map(teamName).join(' og ');
+  editSel = null;
+  commit();
+  toast(reset
+    ? moved + ' byttede plads — ' + plural(reset,'resultat blev nulstillet','resultater blev nulstillet')
+    : moved + ' byttede plads');
 }
 
 /* --- afslut turnering --- */
@@ -1599,6 +1773,7 @@ function finishTournament(){
   pushUndo();
   t.finishedAt = new Date().toISOString();
   season().activeTournamentId = null;
+  editMode = false; editSel = null;
   view = 'season';
   commit();
   toast('Point lagt til sæsonen 🍻', 'ok');
@@ -1744,7 +1919,9 @@ function dataModal(){
             '<button class="btn ghost wide" data-c="export">💾 Prøv at hente fil alligevel</button>' +
             '<button class="btn ghost wide" data-c="import">📂 Indlæs backup-fil</button>') +
       '</div>' +
-      '<input type="file" id="fileIn" accept="application/json,.json" hidden>' +
+      // Bred accept: telefoner giver backup-filen forskellige typer, og en for
+      // snæver liste gør filen umulig at vælge. Indholdet tjekkes alligevel.
+      '<input type="file" id="fileIn" accept=".json,application/json,text/json,text/plain" hidden>' +
 
       '<div class="divider"></div>' +
       '<button class="btn danger wide" data-c="reset">Slet alt og start forfra</button>' +
@@ -1925,6 +2102,11 @@ function helpModal(){
         : 'Her kører siden indlejret, så downloads er slået fra: brug <b>Kopiér data som tekst</b> og gem teksten i en note eller en mail til jer selv.') + '</p>' +
       '<p class="hint warn">Brug den samme enhed og den samme browser hver gang — ellers ser I en tom sæson (indlæs så jeres backup).</p>' +
 
+      '<h3 style="font-size:15px;margin:16px 0 6px">Skal to bestemte hold mødes?</h3>' +
+      '<p class="dim" style="margin-top:0">Tryk <b>⇄ Ret opstilling</b> under turneringen, og tryk så på to hold ' +
+      'for at bytte deres pladser. Det virker både på lodtrækningen og undervejs — hold skal bare være i samme runde. ' +
+      'Bytter I om på hold der allerede har spillet, bliver de kampe nulstillet, og appen siger hvor mange.</p>' +
+
       '<h3 style="font-size:15px;margin:16px 0 6px">Fejlklik</h3>' +
       '<p class="dim" style="margin-top:0">Tryk på det samme hold igen for at fjerne resultatet, eller brug ↺ oppe i hjørnet. ' +
       'Færdige turneringer kan altid rettes under Historik.</p>' +
@@ -2009,13 +2191,21 @@ function manageTeams(){
    EVENTS
    ======================================================================= */
 document.addEventListener('click', function(e){
+  var swap = e.target.closest('[data-swap]');
+  if(swap){ pickSwap(swap.getAttribute('data-swap')); return; }
+
   var pick = e.target.closest('[data-pick]');
   if(pick && !pick.disabled){
     pickWinner(pick.getAttribute('data-pick'), pick.getAttribute('data-team'));
     return;
   }
   var tab = e.target.closest('[data-tab]');
-  if(tab){ view = tab.getAttribute('data-tab'); render(); return; }
+  if(tab){
+    view = tab.getAttribute('data-tab');
+    if(view !== 'tournament'){ editMode = false; editSel = null; }
+    render();
+    return;
+  }
 
   var a = e.target.closest('[data-act]');
   if(!a) return;
@@ -2032,6 +2222,8 @@ document.addEventListener('click', function(e){
     openNewTournament();
   }
   else if(act === 'goto-tournament'){ view = 'tournament'; render(); }
+  else if(act === 'edit-lineup') toggleEditLineup();
+  else if(act === 'edit-done'){ editMode = false; editSel = null; render(); }
   else if(act === 'finish-tournament') finishTournament();
   else if(act === 'cancel-tournament') cancelTournament();
   else if(act === 'edit-tournament') renameTournament();

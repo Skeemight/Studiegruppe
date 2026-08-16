@@ -43,6 +43,16 @@ ikke spørgsmålet.
 | 🥉 3. plads | 2 |
 | 4️⃣ 4. plads | 1 |
 
+## Ret hvem der møder hvem
+
+Skal to bestemte hold mødes, så tryk **⇄ Ret opstilling** under turneringen og
+tryk derefter på to hold — de bytter plads. Det virker både på lodtrækningen og
+midt i turneringen; holdene skal bare stå i samme runde.
+
+Mens redigeringen er slået til, kan man ikke komme til at sætte vindere. Bytter
+I om på hold der allerede har spillet, bliver netop de kampe nulstillet, og
+appen fortæller hvor mange. ↺ fortryder hele byttet.
+
 ## Sæsonen
 
 Pointene stables op hen over sæsonen (typisk et halvt år). Forsiden viser altid
