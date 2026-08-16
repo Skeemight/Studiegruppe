@@ -90,6 +90,7 @@ h1,h2,h3{margin:0;line-height:1.2}
 .tab{
   border:0;background:none;color:rgba(243,241,234,.62);font-size:13px;font-weight:600;
   padding:8px 15px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  min-height:40px;   /* rammes med en finger, ikke en musemarkør */
 }
 .tab:hover{color:var(--cream)}
 .tab.on{background:var(--accent);color:var(--on-accent)}
@@ -109,7 +110,7 @@ h1,h2,h3{margin:0;line-height:1.2}
 .btn.ghost{background:transparent}
 .btn.danger{color:#ffb4b6;border-color:#5a2b2f;background:#2b171a}
 .btn.danger:hover{background:#3a1e22}
-.btn.sm{padding:7px 11px;font-size:13px;border-radius:var(--r-sm)}
+.btn.sm{padding:9px 12px;font-size:13px;border-radius:var(--r-sm);min-height:40px}
 .btn.big{padding:14px 20px;font-size:16px;border-radius:14px}
 .btn.wide{width:100%}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
@@ -155,8 +156,11 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 .podium{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:end;margin-top:6px}
 .pod{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
 .pod-name{
-  font-weight:750;font-size:15px;margin-bottom:8px;text-align:center;
-  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  font-weight:750;font-size:15px;margin-bottom:8px;text-align:center;line-height:1.25;
+  /* Holdnavne er ofte ét langt ord. Uden dette bliver "Kælderholdet" til
+     "Kælderhol…" i en smal søjle — og navnet er hele pointen med podiet. */
+  overflow-wrap:anywhere;hyphens:auto;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
 }
 .pod-block{
   border-radius:14px 14px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
@@ -325,8 +329,10 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-dim);bord
 
 @media(max-width:560px){
   .podium{gap:6px}
-  .pod-name{font-size:12.5px}
+  .pod-name{font-size:12px;letter-spacing:-.01em}
   .pod-rank{font-size:21px}
+  .pod-block{padding:10px 4px}
+  .pod-pts{font-size:11px}
   .hide-sm{display:none}
   .season-head{padding:16px 0 12px}
   .brand-name{font-size:15px}
