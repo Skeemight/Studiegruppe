@@ -988,6 +988,16 @@ function saveSyncCfg(){
     localStorage.setItem(SYNC_KEY, JSON.stringify({ cfg: sync.cfg, rev: sync.rev }));
   }catch(e){}
 }
+/**
+ * Liga-koden skrives i hånden på hver enhed, så den skal sammenlignes
+ * robust. NFC samler tegn som "é", der ellers kan gemmes enten som ét tegn
+ * eller som e + accent — de ser ens ud, men er forskellige strenge, og to
+ * enheder ville aldrig finde hinandens liga.
+ */
+function cleanLeagueCode(s){
+  s = String(s == null ? '' : s).trim();
+  return s.normalize ? s.normalize('NFC') : s;
+}
 function newLeagueCode(){
   var s = '';
   for(var i=0;i<4;i++) s += Math.random().toString(36).slice(2,8);
@@ -2485,7 +2495,7 @@ function syncPanel(){
       var cfg = {
         url: $('#syUrl', root).value.trim(),
         key: $('#syKey', root).value.trim(),
-        league: $('#syLeague', root).value.trim()
+        league: cleanLeagueCode($('#syLeague', root).value)
       };
       if(!cfg.url || !cfg.key || !cfg.league){ toast('Udfyld alle tre felter', 'err'); return; }
       if(cfg.league.length < 12){ toast('Liga-koden skal være mindst 12 tegn', 'err'); return; }
@@ -2859,6 +2869,27 @@ render();
 
 loadSyncCfg();
 if(syncOn()){ setSyncStatus('ok'); startSync(); }
+
+/**
+ * Et link kan medbringe projekt-URL og nøgle: #sync=<base64 af {url,key}>.
+ * Det sparer indtastning af en 50 tegn lang nøgle på en telefon. Liga-koden
+ * kommer aldrig med — den skrives i hånden, så den ikke ligger i et link
+ * der bliver delt videre.
+ */
+(function(){
+  var m = /[#&]sync=([^&]+)/.exec(location.hash || '');
+  if(!m) return;
+  var pre = null;
+  try{ pre = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); }catch(e){}
+  try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+  if(!pre || !pre.url || !pre.key) return;
+  if(syncOn()) return;                       // allerede sat op — rør ikke ved det
+  sync.cfg = { url: pre.url, key: pre.key, league: '' };
+  setTimeout(function(){
+    syncPanel();
+    toast('URL og nøgle er udfyldt — skriv liga-koden');
+  }, 500);
+})();
 
 // Kører siden hosted, kan den få lov at levere backup-filen gennem værten.
 // Findes muligheden ikke, bliver det ved den almindelige download.
